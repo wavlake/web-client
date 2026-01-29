@@ -1,97 +1,125 @@
 # CLAUDE.md
 
-Barebones Wavlake client — **play music, manage credits, buy tracks**. Nothing else.
+Debug client for Wavlake paywall system. **Expose everything.**
 
-## Project Overview
+## Purpose
 
-Minimal client proving Nostr's open architecture. Four features only:
-1. Browse tracks (from relays)
-2. Play audio
-3. View credit balance
-4. Purchase paywalled tracks
+Test harness for:
+1. Track discovery (kind 30440)
+2. Cashu wallet (proofs, balance)
+3. Content API (402 → payment → access)
+4. Audio playback (signed URLs, grants)
 
-**Stack:** React 19 + TypeScript + Vite + NDK + TailwindCSS + Zustand
+**Every action should be visible in debug logs.**
 
-## Critical Rules
+## Stack
 
-### 1. Nostr-First Architecture
-All music content is queried from Nostr relays, NOT traditional APIs.
+React 18 + TypeScript + Vite + NDK + cashu-ts + Zustand
 
-- **Tracks** → Kind 30440 events
-- **Albums** → Kind 30441 events  
-- **Artists** → Kind 30442 events
-- **Playlists** → Kind 30443 events
-
-Use NDK for all Nostr interactions. Never build REST endpoints for content data.
-
-### 2. Development Commands
+## Commands
 
 ```bash
-npm run dev          # Start dev server (port 3000)
-npm run build        # TypeScript + Vite build
-npm run lint         # ESLint check
-npm run lint:fix     # Auto-fix lint issues
+npm run dev          # Dev server (port 3000)
+npm run build        # Production build
 npm run typecheck    # TypeScript check
-npm run test         # Run tests
-npm run test:watch   # Watch mode
+npm run lint         # ESLint
 ```
 
-### 3. Code Quality
-
-- **TypeScript strict mode** - No `any` types
-- **Tests first** - Write tests before implementation when practical
-- **Small PRs** - One feature/fix per PR
-- **Descriptive commits** - Explain what and why
-
-### 4. Project Structure
+## Project Structure
 
 ```
 src/
-├── components/      # UI components
-│   └── PurchasePrompt.tsx
-├── hooks/           # React hooks
-│   ├── useTracks.ts    # Query tracks from relays
-│   ├── useAudio.ts     # Audio playback
-│   ├── useCredits.ts   # Credit balance
-│   └── usePurchase.ts  # Purchase flow
-├── lib/             # Utilities
-│   ├── ndk.tsx      # NDK provider
-│   ├── api.ts       # Wavlake API client
-│   └── parsers.ts   # Event parsing
-├── stores/          # Zustand stores
-│   ├── player.ts    # Playback state
-│   └── auth.ts      # Auth state
-├── pages/           # Route components
-└── types/           # TypeScript types
+├── components/
+│   ├── DebugLayout.tsx    # Main 3-panel layout
+│   ├── DebugPanel.tsx     # Collapsible debug panel
+│   ├── TrackList.tsx      # Track browser
+│   ├── WalletPanel.tsx    # Wallet state display
+│   ├── PlayerDebug.tsx    # Playback debug info
+│   └── ApiConfigPanel.tsx # API URL config
+├── hooks/
+│   ├── useTracks.ts       # Query kind 30440
+│   ├── useContentAccess.ts # Paywall API
+│   └── useAudioPlayer.ts  # Audio element
+├── stores/
+│   ├── debug.ts           # Log entries
+│   ├── wallet.ts          # Cashu proofs
+│   └── player.ts          # Playback state
+├── lib/
+│   ├── ndk.tsx            # Nostr connection
+│   ├── cashu.ts           # Cashu wallet wrapper
+│   ├── api.ts             # API client
+│   └── parsers.ts         # Event parsing
+└── types/
+    └── nostr.ts           # Event types
 ```
 
-## Key Event Kind
+## Key Flows
 
-| Kind | Description |
-|------|-------------|
-| 30440 | Track metadata |
+### Purchase Flow (Debug Visible)
 
-We only care about tracks. No albums, artists, playlists.
+1. Click paywalled track
+2. Log: `REQUEST GET /content/{dtag}`
+3. Log: `RESPONSE 402 { priceCredits, mintUrl }`
+4. Show purchase prompt with price
+5. User confirms
+6. Log: `WALLET spending {n} proofs`
+7. Log: `REQUEST GET /content/{dtag} + X-Ecash-Token`
+8. Log: `RESPONSE 200 { url, grant }`
+9. Log: `PLAYER loading signed URL`
+10. Audio plays
 
-## Key APIs
+### Wallet State
 
-### Wavlake API (requires NIP-98 auth)
+Always visible:
+- Total balance (sum of proof amounts)
+- Individual proofs with amounts
+- Pending proofs (being spent)
+- Last transaction
 
+### Grant Cache
+
+- Grant ID for replay
+- Expiry countdown
+- Signed URL (truncated)
+
+## API Integration
+
+```typescript
+// Content access
+GET /api/v1/content/{dtag}
+
+// Headers
+X-Ecash-Token: cashuB...  // Payment
+X-Access-Grant: {id}      // Replay
+
+// Responses
+200: { url, grant, streamType }
+402: { priceCredits, mintUrl, paymentMethods }
 ```
-GET  /v1/wallet/balance     # Get credit balance
-POST /v1/tracks/{id}/purchase  # Purchase track
+
+## Debug Logging
+
+Every significant action logs to debug store:
+
+```typescript
+debugStore.addLog({
+  timestamp: new Date(),
+  type: 'request' | 'response' | 'wallet' | 'player' | 'error',
+  label: 'GET /content/abc123',
+  data: { /* full request/response */ }
+});
 ```
 
-### NIP-98 Auth
+## Cashu Token Format
 
-Sign a Nostr event with kind 27235, include as Authorization header.
+Using v4 tokens (cashuB...):
 
-## Relay Configuration
+```typescript
+import { getEncodedTokenV4 } from '@cashu/cashu-ts';
 
-- `wss://relay.wavlake.com` - Primary
-- `wss://relay.damus.io` - Fallback
-
-## Reference
-
-- [NIP-wavlake-music](https://github.com/wavlake/monorepo/blob/main/docs/PRD/NIPs/NIP-wavlake-music.md)
-- [NDK Docs](https://ndk.fiatjaf.com/)
+const token = getEncodedTokenV4({
+  mint: mintUrl,
+  proofs,
+  unit: 'usd',
+});
+```

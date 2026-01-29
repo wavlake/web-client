@@ -1,26 +1,45 @@
-# Wavlake Web Client
+# Wavlake Paywall Debug Client
 
-A barebones alternative client for [Wavlake](https://wavlake.com) — focused on what matters: **play music, manage credits, buy tracks**.
+A **debug/testing harness** for the Wavlake paywall system. Built to expose every step of the payment flow.
 
-## Why?
+## Purpose
 
-Wavlake's Nostr-first architecture means all music lives on relays. This minimal client proves anyone can build a player.
+Test and debug:
+- Kind 30440 track discovery
+- Cashu wallet operations (proofs, balances)
+- Content API requests/responses
+- Payment flow (402 → token → access)
+- Audio playback from signed URLs
 
 ## Features
 
-- 🎵 **Browse Tracks** - Simple grid from Nostr relays
-- 🎧 **Play Music** - Barebones audio player
-- 💳 **Credit Balance** - View your Wavlake credits
-- 🔓 **Buy Tracks** - Spend credits on paywalled content
+- 📊 **Debug Panels** - Real-time state inspection
+- 🪙 **Wallet Visibility** - See all proofs, balances, transactions
+- 📝 **Request Logging** - Full request/response history
+- 🔊 **Playback Debug** - Stream status, grant expiry, buffer health
 
-That's it. No social features, no playlists, no bloat.
+## Layout
 
-## Tech Stack
-
-- React 19 + TypeScript + Vite
-- NDK for Nostr
-- TailwindCSS
-- Zustand for state
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🎵 Wavlake Debug Client           [API: localhost:3000]    │
+├──────────────┬───────────────────────┬──────────────────────┤
+│              │                       │   Wallet Panel       │
+│  Track List  │   Now Playing         │   Balance: 500 ¢     │
+│              │   + Controls          │   Proofs: [...]      │
+│  - Track 1   │                       ├──────────────────────┤
+│  - Track 2 🔒│                       │   API Config         │
+│  - Track 3   │                       │   Base URL: [...]    │
+│              │                       │                      │
+├──────────────┴───────────────────────┴──────────────────────┤
+│  Debug Log                                                  │
+│  22:15:01 REQUEST GET /content/abc123                       │
+│  22:15:01 RESPONSE 402 { priceCredits: 5, mintUrl: ... }    │
+│  22:15:02 WALLET spending 5 credits (proofs: [...])         │
+│  22:15:02 REQUEST GET /content/abc123 + X-Ecash-Token       │
+│  22:15:02 RESPONSE 200 { url: "...", grant: {...} }         │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Getting Started
 
@@ -29,13 +48,20 @@ npm install
 npm run dev
 ```
 
-## How It Works
+Configure API URL in the debug panel (default: `http://localhost:3000/api/v1`)
 
-1. Tracks are queried from Nostr relays (kind 30440)
-2. Free tracks play immediately
-3. Paywalled tracks require login + credits
-4. Credits are managed via Wavlake API (NIP-98 auth)
+## Token Import
 
-## License
+Paste a Cashu token (cashuA... or cashuB...) to add credits to your wallet.
 
-MIT
+## Tech Stack
+
+- React 18 + TypeScript + Vite
+- NDK for Nostr relay queries
+- cashu-ts for wallet operations
+- Zustand for state management
+
+## Related
+
+- [wavlake/monorepo](https://github.com/wavlake/monorepo) - Main platform
+- [cashu-ts](https://github.com/cashubtc/cashu-ts) - Cashu TypeScript library
