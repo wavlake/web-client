@@ -1,16 +1,11 @@
-import { Routes, Route } from 'react-router-dom';
 import { NDKProvider } from './lib/ndk';
-import Layout from './components/Layout';
-import HomePage from './pages/HomePage';
+import DebugLayout from './components/DebugLayout';
+import TrackList from './components/TrackList';
 
 function App() {
   return (
     <NDKProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-        </Routes>
-      </Layout>
+      <DebugLayout trackList={<TrackList />} />
     </NDKProvider>
   );
 }
