@@ -3,7 +3,9 @@ import { DebugPanel, JsonViewer } from './DebugPanel';
 import { DebugLog } from './DebugLog';
 import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';
+import { usePlayerStore } from '../stores/player';
 import { PurchasePanel } from './PurchasePanel';
+import AudioPlayer from './AudioPlayer';
 
 interface DebugLayoutProps {
   trackList: ReactNode;
@@ -74,36 +76,66 @@ function ApiConfigPanel() {
   );
 }
 
-// Now playing area placeholder
+// Now playing area with player state
 function NowPlaying() {
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const signedUrl = usePlayerStore((s) => s.signedUrl);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+
+  if (!currentTrack) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <div className="w-48 h-48 rounded-lg bg-surface-light mb-6 flex items-center justify-center">
+          <svg className="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+          </svg>
+        </div>
+        <p className="text-gray-400 text-sm mb-2">No track selected</p>
+        <p className="text-gray-500 text-xs">Select a track from the list to start</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center justify-center h-full p-8">
-      <div className="w-48 h-48 rounded-lg bg-surface-light mb-6 flex items-center justify-center">
-        <svg className="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-        </svg>
+      {/* Album art */}
+      <div className="w-48 h-48 rounded-lg bg-surface-light mb-6 overflow-hidden shadow-lg">
+        {currentTrack.metadata.artwork_url ? (
+          <img
+            src={currentTrack.metadata.artwork_url}
+            alt={currentTrack.metadata.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-6xl">🎵</span>
+          </div>
+        )}
       </div>
-      <p className="text-gray-400 text-sm mb-2">No track selected</p>
-      <p className="text-gray-500 text-xs">Select a track from the list to start</p>
       
-      {/* Playback controls placeholder */}
-      <div className="flex items-center gap-4 mt-8">
-        <button className="text-gray-500 hover:text-white transition-colors">
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-          </svg>
-        </button>
-        <button className="w-12 h-12 rounded-full bg-white text-black hover:bg-gray-200 transition-colors flex items-center justify-center">
-          <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </button>
-        <button className="text-gray-500 hover:text-white transition-colors">
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-          </svg>
-        </button>
-      </div>
+      {/* Track info */}
+      <h2 className="text-xl font-bold text-white mb-1">{currentTrack.metadata.title}</h2>
+      <p className="text-gray-400 mb-4">{currentTrack.metadata.artist}</p>
+      
+      {/* Playing indicator */}
+      {isPlaying && (
+        <div className="flex items-center gap-1 text-primary">
+          <div className="flex gap-0.5">
+            <div className="w-1 h-4 bg-primary animate-pulse" />
+            <div className="w-1 h-6 bg-primary animate-pulse delay-75" />
+            <div className="w-1 h-3 bg-primary animate-pulse delay-150" />
+            <div className="w-1 h-5 bg-primary animate-pulse delay-200" />
+          </div>
+          <span className="text-sm ml-2">Now Playing</span>
+        </div>
+      )}
+      
+      {/* Debug: Show signed URL (truncated) */}
+      {signedUrl && (
+        <div className="mt-4 p-2 bg-surface rounded text-xs font-mono text-gray-500 max-w-md truncate">
+          URL: {signedUrl.slice(0, 60)}...
+        </div>
+      )}
     </div>
   );
 }
@@ -193,6 +225,10 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
         <main className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-auto">
             <NowPlaying />
+          </div>
+          {/* Audio player controls */}
+          <div className="flex-none h-20 border-t border-surface-light bg-surface px-4">
+            <AudioPlayer />
           </div>
         </main>
 

@@ -1,36 +1,41 @@
+import { useState } from 'react';
 import { useTracks } from '../hooks/useTracks';
+import { useContentAccess } from '../hooks/useContentAccess';
 import { debugLog } from '../stores/debug';
+import { usePlayerStore } from '../stores/player';
+import { useWalletStore } from '../stores/wallet';
+import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
 
-function TrackItem({ track }: { track: Track }) {
+interface PaymentState {
+  track: Track;
+  price: number;
+}
+
+function TrackItem({ 
+  track, 
+  onPlay, 
+  isCurrentTrack,
+  isPlaying,
+}: { 
+  track: Track; 
+  onPlay: (track: Track) => void;
+  isCurrentTrack: boolean;
+  isPlaying: boolean;
+}) {
   const { metadata } = track;
   const isPaywalled = metadata.access_mode === 'paywall';
   const price = metadata.price_credits;
 
-  const handleClick = () => {
-    debugLog('event', `Track clicked: ${metadata.title}`, {
-      trackId: track.id,
-      dTag: track.dTag,
-      isPaywalled,
-      price,
-    });
-
-    if (isPaywalled) {
-      debugLog('player', `Paywalled track - payment required`, {
-        price,
-      });
-    } else {
-      debugLog('player', `Loading track: ${metadata.title}`);
-    }
-  };
-
   return (
     <button
-      onClick={handleClick}
-      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-light transition-colors text-left group"
+      onClick={() => onPlay(track)}
+      className={`w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-light transition-colors text-left group ${
+        isCurrentTrack ? 'bg-surface-light' : ''
+      }`}
     >
       {/* Thumbnail */}
-      <div className="w-10 h-10 rounded bg-surface-light flex-none overflow-hidden">
+      <div className="w-10 h-10 rounded bg-surface-light flex-none overflow-hidden relative">
         {metadata.artwork_url ? (
           <img
             src={metadata.artwork_url}
@@ -45,11 +50,20 @@ function TrackItem({ track }: { track: Track }) {
             </svg>
           </div>
         )}
+        {isCurrentTrack && isPlaying && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <div className="flex gap-0.5">
+              <div className="w-1 h-3 bg-primary animate-pulse" />
+              <div className="w-1 h-4 bg-primary animate-pulse delay-75" />
+              <div className="w-1 h-2 bg-primary animate-pulse delay-150" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Track info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-white truncate">
+        <p className={`text-sm truncate ${isCurrentTrack ? 'text-primary' : 'text-white'}`}>
           {metadata.title}
         </p>
         <p className="text-xs text-gray-500 truncate">
@@ -93,6 +107,81 @@ function LoadingSkeleton() {
 
 export default function TrackList() {
   const { tracks, loading, error } = useTracks({ limit: 50 });
+  const { checkAccess, purchaseAccess } = useContentAccess();
+  const currentTrack = usePlayerStore((s) => s.currentTrack);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const play = usePlayerStore((s) => s.play);
+  const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
+  
+  const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handlePlay = async (track: Track) => {
+    debugLog('event', `Track clicked: ${track.metadata.title}`, {
+      trackId: track.id,
+      dTag: track.dTag,
+      isPaywalled: track.metadata.access_mode === 'paywall',
+      price: track.metadata.price_credits,
+    });
+
+    // Check access first
+    const result = await checkAccess(track);
+
+    if (result.success) {
+      // Free track or already purchased - play it
+      play(track, result.url);
+      return;
+    }
+
+    if (result.requiresPayment) {
+      // Show payment modal
+      setPaymentState({
+        track,
+        price: result.priceCredits,
+      });
+      return;
+    }
+
+    // Error
+    debugLog('error', 'Access check failed', { error: result.error });
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!paymentState) return;
+
+    setIsProcessing(true);
+    const { track, price } = paymentState;
+
+    // Select proofs for payment
+    const proofs = selectProofsForAmount(price);
+    if (!proofs || proofs.length === 0) {
+      debugLog('error', 'No proofs available for payment');
+      setIsProcessing(false);
+      return;
+    }
+
+    debugLog('wallet', `Spending ${price} credits`, {
+      proofCount: proofs.length,
+      proofAmounts: proofs.map(p => p.amount),
+    });
+
+    // Make payment
+    const result = await purchaseAccess(track, proofs);
+
+    if (result.success) {
+      // Payment successful - play track
+      play(track, result.url);
+      setPaymentState(null);
+    } else {
+      debugLog('error', 'Payment failed', { result });
+    }
+
+    setIsProcessing(false);
+  };
+
+  const handlePaymentCancel = () => {
+    setPaymentState(null);
+  };
 
   if (error) {
     return (
@@ -115,10 +204,29 @@ export default function TrackList() {
   }
 
   return (
-    <div className="space-y-1">
-      {tracks.map((track) => (
-        <TrackItem key={track.id} track={track} />
-      ))}
-    </div>
+    <>
+      <div className="space-y-1">
+        {tracks.map((track) => (
+          <TrackItem 
+            key={track.id} 
+            track={track} 
+            onPlay={handlePlay}
+            isCurrentTrack={currentTrack?.id === track.id}
+            isPlaying={isPlaying && currentTrack?.id === track.id}
+          />
+        ))}
+      </div>
+
+      {/* Payment Modal */}
+      {paymentState && (
+        <PaymentModal
+          track={paymentState.track}
+          price={paymentState.price}
+          onConfirm={handlePaymentConfirm}
+          onCancel={handlePaymentCancel}
+          isProcessing={isProcessing}
+        />
+      )}
+    </>
   );
 }
