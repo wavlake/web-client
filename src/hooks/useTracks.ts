@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import type { NDKFilter } from '@nostr-dev-kit/ndk';
 import { useNDK } from '../lib/ndk';
 import { parseTrackEvent } from '../lib/parsers';
-import { NostrEventKind, type Track } from '../types/nostr';
+import type { Track } from '../types/nostr';
+
+// Kind 30440 - Track metadata (A440 Hz reference)
+const TRACK_KIND = 30440;
 
 interface UseTracksOptions {
   limit?: number;
@@ -31,7 +34,7 @@ export function useTracks(options: UseTracksOptions = {}): UseTracksResult {
     }
 
     const filter: NDKFilter = {
-      kinds: [NostrEventKind.TRACK_METADATA],
+      kinds: [TRACK_KIND as number],
       limit,
     };
 
