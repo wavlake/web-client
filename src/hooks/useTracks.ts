@@ -62,9 +62,7 @@ export function useTracks(options: UseTracksOptions = {}): UseTracksResult {
 
     // Timeout fallback if no eose received
     const timeout = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }, 10000);
 
     return () => {
