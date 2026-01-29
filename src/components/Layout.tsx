@@ -1,10 +1,48 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const [pubkey, setPubkey] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  // Check for existing login on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('nostr_pubkey');
+    if (stored) setPubkey(stored);
+  }, []);
+
+  const handleConnect = async () => {
+    if (pubkey) {
+      // Logout
+      localStorage.removeItem('nostr_pubkey');
+      setPubkey(null);
+      return;
+    }
+
+    // Check for NIP-07 extension
+    if (!window.nostr) {
+      alert('No Nostr extension found. Install Alby or nos2x to connect.');
+      return;
+    }
+
+    setConnecting(true);
+    try {
+      const pk = await window.nostr.getPublicKey();
+      localStorage.setItem('nostr_pubkey', pk);
+      setPubkey(pk);
+    } catch (err) {
+      console.error('Failed to connect:', err);
+      alert('Failed to connect. Please try again.');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const shortPubkey = pubkey ? `${pubkey.slice(0, 8)}...` : null;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -14,28 +52,20 @@ export default function Layout({ children }: LayoutProps) {
             <span className="text-2xl">🎵</span>
             <span className="text-xl font-bold text-white">Wavlake</span>
           </div>
-          <nav className="flex items-center gap-6">
-            <a href="/" className="text-gray-400 hover:text-white transition-colors">
-              Discover
-            </a>
-            <a href="/artists" className="text-gray-400 hover:text-white transition-colors">
-              Artists
-            </a>
-            <a href="/albums" className="text-gray-400 hover:text-white transition-colors">
-              Albums
-            </a>
-          </nav>
           <div>
-            {/* Auth button placeholder */}
-            <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
-              Connect
+            <button 
+              onClick={handleConnect}
+              disabled={connecting}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
+            >
+              {connecting ? 'Connecting...' : pubkey ? shortPubkey : 'Connect'}
             </button>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8 pb-28">{children}</main>
 
       {/* Player bar placeholder */}
       <div className="fixed bottom-0 left-0 right-0 h-20 border-t border-surface-light bg-surface">
@@ -61,4 +91,14 @@ export default function Layout({ children }: LayoutProps) {
       </div>
     </div>
   );
+}
+
+// TypeScript declaration for NIP-07
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey(): Promise<string>;
+      signEvent(event: object): Promise<object>;
+    };
+  }
 }
