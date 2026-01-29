@@ -2,31 +2,49 @@ import React, { ReactNode, useState, useEffect } from 'react';
 import { DebugPanel, JsonViewer } from './DebugPanel';
 import { DebugLog } from './DebugLog';
 import { debugLog } from '../stores/debug';
+import { useWalletStore } from '../stores/wallet';
+import { PurchasePanel } from './PurchasePanel';
 
 interface DebugLayoutProps {
   trackList: ReactNode;
 }
 
-// Placeholder wallet panel - will be connected to real store later
+// Wallet panel connected to real store
 function WalletPanel() {
-  const [balance] = useState(0);
-  const [proofs] = useState<unknown[]>([]);
+  const proofs = useWalletStore(state => state.proofs);
+  const pendingProofs = useWalletStore(state => state.pendingProofs);
+  const balance = useWalletStore(state => state.getBalance());
+  const reset = useWalletStore(state => state.reset);
 
   return (
     <DebugPanel title="Wallet State">
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-xs text-gray-400">Balance</span>
-          <span className="text-sm font-mono text-white">{balance} credits</span>
+          <span className="text-sm font-mono text-green-400">{balance} credits</span>
         </div>
         <div>
           <span className="text-xs text-gray-400 block mb-1">Proofs ({proofs.length})</span>
           {proofs.length > 0 ? (
-            <JsonViewer data={proofs} maxHeight="100px" />
+            <JsonViewer data={proofs.map(p => ({ amount: p.amount, id: p.id?.slice(0, 8) }))} maxHeight="100px" />
           ) : (
             <span className="text-xs text-gray-500">No proofs loaded</span>
           )}
         </div>
+        {pendingProofs.length > 0 && (
+          <div>
+            <span className="text-xs text-yellow-400 block mb-1">Pending ({pendingProofs.length})</span>
+            <JsonViewer data={pendingProofs.map(p => ({ amount: p.amount }))} maxHeight="60px" />
+          </div>
+        )}
+        {proofs.length > 0 && (
+          <button
+            onClick={reset}
+            className="w-full py-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
+          >
+            🗑 Clear Wallet
+          </button>
+        )}
       </div>
     </DebugPanel>
   );
@@ -182,6 +200,7 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
         <aside className="w-80 flex-none border-l border-surface-light overflow-auto bg-surface/30">
           <div className="p-3 space-y-3">
             <h2 className="text-sm font-medium text-white">Debug Panels</h2>
+            <PurchasePanel />
             <WalletPanel />
             <ApiConfigPanel />
           </div>
