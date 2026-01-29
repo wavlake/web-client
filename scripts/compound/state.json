@@ -1,8 +1,15 @@
 {
   "lastReview": null,
-  "lastImplement": null,
+  "lastImplement": "2026-01-29T22:15:00.000Z",
   "totalReviews": 0,
-  "totalPRsCreated": 0,
-  "currentPRD": null,
-  "history": []
+  "totalPRsCreated": 1,
+  "currentPRD": "01-nostr-track-browsing",
+  "history": [
+    {
+      "prd": "01-nostr-track-browsing",
+      "phase": 1,
+      "pr": "https://github.com/wavlake/web-client/pull/1",
+      "timestamp": "2026-01-29T22:15:00.000Z"
+    }
+  ]
 }
