@@ -93,12 +93,4 @@ export default function Layout({ children }: LayoutProps) {
   );
 }
 
-// TypeScript declaration for NIP-07
-declare global {
-  interface Window {
-    nostr?: {
-      getPublicKey(): Promise<string>;
-      signEvent(event: object): Promise<object>;
-    };
-  }
-}
+// NIP-07 types provided by @nostr-dev-kit/ndk
