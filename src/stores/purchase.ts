@@ -8,18 +8,21 @@ import {
   unblindSignatures,
 } from '../lib/blinding';
 
+// Nutshell mint quote response (NUT-04)
 interface QuoteResponse {
-  quoteId: string;
-  bolt11: string;
+  quote: string;      // quote ID
+  request: string;    // bolt11 invoice
   amount: number;
-  expiresAt: string;
+  state: string;      // 'UNPAID' | 'PAID' | 'ISSUED'
+  expiry: number;     // unix timestamp
 }
 
 interface QuoteStatusResponse {
-  quoteId: string;
-  paid: boolean;
+  quote: string;
+  request: string;
   amount: number;
-  expiresAt: string;
+  state: string;
+  expiry: number;
 }
 
 interface MintResponse {
@@ -78,8 +81,9 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
   createQuote: async (amount: number) => {
     set({ isCreatingQuote: true, error: null });
     
-    const url = `${CONFIG.CONTENT_API_URL}/credits/quote`;
-    debugLog('request', `POST ${url}`, { amount });
+    // Use Nutshell mint directly (NUT-04)
+    const url = `${CONFIG.MINT_URL}/v1/mint/quote/bolt11`;
+    debugLog('request', `POST ${url}`, { amount, unit: 'usd' });
     
     try {
       const response = await fetch(url, {
@@ -87,7 +91,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, unit: 'usd' }),
       });
       
       if (!response.ok) {
@@ -103,11 +107,11 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       debugLog('response', `POST ${url}`, data);
       
       set({
-        quoteId: data.quoteId,
-        bolt11: data.bolt11,
+        quoteId: data.quote,
+        bolt11: data.request,
         quoteAmount: data.amount,
-        quoteExpiry: new Date(data.expiresAt),
-        quotePaid: false,
+        quoteExpiry: new Date(data.expiry * 1000),
+        quotePaid: data.state === 'PAID',
         isCreatingQuote: false,
       });
     } catch (err) {
@@ -129,7 +133,8 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     
     set({ isCheckingStatus: true, error: null });
     
-    const url = `${CONFIG.CONTENT_API_URL}/credits/quote/${quoteId}`;
+    // Use Nutshell mint directly (NUT-04)
+    const url = `${CONFIG.MINT_URL}/v1/mint/quote/bolt11/${quoteId}`;
     debugLog('request', `GET ${url}`);
     
     try {
@@ -147,12 +152,13 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       const data: QuoteStatusResponse = await response.json();
       debugLog('response', `GET ${url}`, data);
       
+      const isPaid = data.state === 'PAID';
       set({
-        quotePaid: data.paid,
+        quotePaid: isPaid,
         isCheckingStatus: false,
       });
       
-      return data.paid;
+      return isPaid;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       debugLog('error', 'Quote status check error', { error: message });
@@ -188,8 +194,8 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       
       set({ blindedOutputs: outputs, outputData });
       
-      // Step 2: Send to mint endpoint
-      const url = `${CONFIG.CONTENT_API_URL}/credits/mint/bolt11`;
+      // Step 2: Send to Nutshell mint endpoint (NUT-04)
+      const url = `${CONFIG.MINT_URL}/v1/mint/bolt11`;
       const body = {
         quote: quoteId,
         outputs: outputs,
