@@ -2,12 +2,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import NDK from '@nostr-dev-kit/ndk';
 
-// Default relays for Wavlake content
+// Wavlake relay only
 const DEFAULT_RELAYS = [
   'wss://relay.wavlake.com',
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
 ];
 
 interface NDKContextType {
