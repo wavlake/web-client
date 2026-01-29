@@ -112,6 +112,18 @@ export function useContentAccess() {
     
     const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
     
+    // Log proof details before encoding
+    debugLog('wallet', 'Preparing proofs for payment', {
+      proofCount: proofs.length,
+      proofs: proofs.map(p => ({
+        amount: p.amount,
+        id: p.id,  // keyset ID
+        C: p.C?.slice(0, 20) + '...',
+        secret: p.secret?.slice(0, 20) + '...',
+      })),
+      totalAmount: proofs.reduce((s, p) => s + p.amount, 0),
+    });
+
     // Encode proofs as cashu token
     const token = getEncodedTokenV4({
       mint: CONFIG.MINT_URL,
@@ -119,12 +131,19 @@ export function useContentAccess() {
       unit: 'usd',
     });
     
-    debugLog('request', `GET ${url} (with payment)`, { 
+    debugLog('wallet', 'Encoded Cashu token', {
+      mintUrl: CONFIG.MINT_URL,
+      unit: 'usd',
+      tokenPreview: token.slice(0, 50) + '...',
+      tokenLength: token.length,
+    });
+    
+    debugLog('request', `GET ${url} (with X-Cashu-Token)`, { 
       trackId: track.id, 
       dTag: track.dTag,
-      tokenLength: token.length,
-      proofCount: proofs.length,
-      totalAmount: proofs.reduce((s, p) => s + p.amount, 0),
+      headers: {
+        'X-Cashu-Token': token.slice(0, 30) + '...',
+      },
     });
 
     try {

@@ -31,10 +31,22 @@ export const useWalletStore = create<WalletState>()(
       },
       
       addProofs: (newProofs) => {
-        debugLog('wallet', 'Adding proofs', { 
-          count: newProofs.length, 
-          amounts: newProofs.map(p => p.amount),
-          total: newProofs.reduce((s, p) => s + p.amount, 0)
+        const { proofs: existingProofs } = get();
+        const newBalance = existingProofs.reduce((s, p) => s + p.amount, 0) + 
+                          newProofs.reduce((s, p) => s + p.amount, 0);
+        
+        debugLog('wallet', 'Adding proofs to wallet', { 
+          newProofCount: newProofs.length, 
+          newProofAmounts: newProofs.map(p => p.amount),
+          newProofsTotal: newProofs.reduce((s, p) => s + p.amount, 0),
+          proofs: newProofs.map(p => ({
+            amount: p.amount,
+            id: p.id,  // keyset ID
+            C: p.C?.slice(0, 16) + '...',
+            secret: p.secret?.slice(0, 16) + '...',
+          })),
+          existingProofCount: existingProofs.length,
+          newBalance,
         });
         set((state) => ({
           proofs: [...state.proofs, ...newProofs],

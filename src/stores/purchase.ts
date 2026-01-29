@@ -104,7 +104,21 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       }
       
       const data: QuoteResponse = await response.json();
-      debugLog('response', `POST ${url}`, data);
+      debugLog('response', `POST ${url}`, {
+        quote: data.quote,
+        state: data.state,
+        amount: data.amount,
+        expiry: data.expiry,
+        expiryDate: new Date(data.expiry * 1000).toISOString(),
+        bolt11Preview: data.request?.slice(0, 40) + '...',
+      });
+      
+      debugLog('wallet', 'Quote created', {
+        quoteId: data.quote,
+        amount: data.amount,
+        unit: 'usd',
+        state: data.state,
+      });
       
       set({
         quoteId: data.quote,
@@ -150,9 +164,19 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       }
       
       const data: QuoteStatusResponse = await response.json();
-      debugLog('response', `GET ${url}`, data);
+      debugLog('response', `GET ${url}`, {
+        quote: data.quote,
+        state: data.state,
+        amount: data.amount,
+      });
       
       const isPaid = data.state === 'PAID';
+      debugLog('wallet', `Quote status: ${data.state}`, {
+        quoteId: data.quote,
+        isPaid,
+        state: data.state,
+      });
+      
       set({
         quotePaid: isPaid,
         isCheckingStatus: false,

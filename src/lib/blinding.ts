@@ -41,13 +41,20 @@ export async function getMint(): Promise<Mint> {
 export async function getWallet(): Promise<Wallet> {
   if (!walletInstance) {
     const mint = await getMint();
-    debugLog('wallet', 'Initializing Wallet');
+    debugLog('wallet', 'Initializing Wallet', { mintUrl: CONFIG.MINT_URL, unit: 'usd' });
     walletInstance = new Wallet(mint, { unit: 'usd' });
     
     // Load mint info and keys
+    debugLog('wallet', 'Loading mint info...');
     await walletInstance.loadMint();
-    debugLog('wallet', 'Mint loaded', { 
-      keysetId: walletInstance.keysetId 
+    
+    // Log mint metadata
+    const keyset = walletInstance.getKeyset();
+    debugLog('wallet', 'Mint loaded successfully', { 
+      keysetId: walletInstance.keysetId,
+      keysetUnit: keyset.unit,
+      keysetActive: keyset.active,
+      keyAmounts: Object.keys(keyset.keys).map(k => parseInt(k)).sort((a, b) => a - b),
     });
   }
   return walletInstance;
@@ -78,7 +85,11 @@ export async function createBlindedOutputs(
   const wallet = await getWallet();
   const keyset = wallet.getKeyset();
   
-  debugLog('wallet', 'Creating blinded outputs', { amount, keysetId: keyset.id });
+  debugLog('wallet', 'Creating blinded outputs', { 
+    amount, 
+    keysetId: keyset.id,
+    keysetUnit: keyset.unit,
+  });
   
   // Create random blinded outputs using OutputData helper
   const outputData = OutputData.createRandomData(amount, keyset);
@@ -88,7 +99,12 @@ export async function createBlindedOutputs(
   
   debugLog('wallet', 'Created blinded outputs', { 
     count: outputs.length,
-    amounts: outputs.map(m => m.amount)
+    amounts: outputs.map(m => m.amount),
+    outputs: outputs.map(o => ({
+      amount: o.amount,
+      id: o.id,  // keyset ID
+      B_: o.B_?.slice(0, 20) + '...',  // blinded secret
+    })),
   });
   
   return {
@@ -107,7 +123,15 @@ export async function unblindSignatures(
   const wallet = await getWallet();
   const keyset = wallet.getKeyset();
   
-  debugLog('wallet', 'Unblinding signatures', { count: signatures.length });
+  debugLog('wallet', 'Unblinding signatures', { 
+    count: signatures.length,
+    keysetId: keyset.id,
+    signatures: signatures.map(s => ({
+      amount: s.amount,
+      id: s.id,  // keyset ID
+      C_: s.C_?.slice(0, 20) + '...',  // blind signature
+    })),
+  });
   
   // Convert each signature to a proof using the outputData
   const proofs: Proof[] = signatures.map((sig, i) => {
@@ -116,7 +140,13 @@ export async function unblindSignatures(
   
   debugLog('wallet', 'Unblinded to proofs', { 
     count: proofs.length,
-    amounts: proofs.map(p => p.amount),
+    keysetId: keyset.id,
+    proofs: proofs.map(p => ({
+      amount: p.amount,
+      id: p.id,  // keyset ID
+      C: p.C?.slice(0, 20) + '...',
+      secret: p.secret?.slice(0, 20) + '...',
+    })),
     total: proofs.reduce((s, p) => s + p.amount, 0)
   });
   
