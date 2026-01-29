@@ -138,18 +138,18 @@ export function useContentAccess() {
       tokenLength: token.length,
     });
     
-    debugLog('request', `GET ${url} (with X-Cashu-Token)`, { 
+    debugLog('request', `GET ${url} (with X-Ecash-Token)`, { 
       trackId: track.id, 
       dTag: track.dTag,
       headers: {
-        'X-Cashu-Token': token.slice(0, 30) + '...',
+        'X-Ecash-Token': token.slice(0, 30) + '...',
       },
     });
 
     try {
       const response = await fetch(url, {
         headers: {
-          'X-Cashu-Token': token,
+          'X-Ecash-Token': token,
         },
       });
 
