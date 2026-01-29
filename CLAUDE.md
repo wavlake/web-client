@@ -1,12 +1,16 @@
 # CLAUDE.md
 
-Development guide for the Wavlake alternative web client - a Nostr-native music streaming application.
+Barebones Wavlake client — **play music, manage credits, buy tracks**. Nothing else.
 
 ## Project Overview
 
-This is an **independent client** for the Wavlake music platform. It demonstrates the power of Nostr's decentralized architecture - all music content lives on relays, so anyone can build a client.
+Minimal client proving Nostr's open architecture. Four features only:
+1. Browse tracks (from relays)
+2. Play audio
+3. View credit balance
+4. Purchase paywalled tracks
 
-**Stack:** React 19 + TypeScript + Vite + NDK + TailwindCSS + React Query
+**Stack:** React 19 + TypeScript + Vite + NDK + TailwindCSS + Zustand
 
 ## Critical Rules
 
@@ -43,99 +47,51 @@ npm run test:watch   # Watch mode
 
 ```
 src/
-├── components/      # Reusable UI components
-│   ├── ui/          # Base components (buttons, cards, etc.)
-│   ├── player/      # Audio player components
-│   └── nostr/       # Nostr-specific components (login, profiles)
-├── hooks/           # Custom React hooks
-│   ├── useTrack.ts  # Query tracks from relays
-│   ├── useAlbum.ts  # Query albums
-│   └── usePlayer.ts # Audio playback state
-├── lib/             # Utilities and providers
-│   ├── ndk.tsx      # NDK provider and context
-│   └── utils.ts     # Helper functions
+├── components/      # UI components
+│   └── PurchasePrompt.tsx
+├── hooks/           # React hooks
+│   ├── useTracks.ts    # Query tracks from relays
+│   ├── useAudio.ts     # Audio playback
+│   ├── useCredits.ts   # Credit balance
+│   └── usePurchase.ts  # Purchase flow
+├── lib/             # Utilities
+│   ├── ndk.tsx      # NDK provider
+│   ├── api.ts       # Wavlake API client
+│   └── parsers.ts   # Event parsing
+├── stores/          # Zustand stores
+│   ├── player.ts    # Playback state
+│   └── auth.ts      # Auth state
 ├── pages/           # Route components
-├── types/           # TypeScript type definitions
-└── stores/          # Zustand stores (player state, auth)
+└── types/           # TypeScript types
 ```
 
-## Nostr Event Kinds
+## Key Event Kind
 
-| Kind | Description | Reference |
-|------|-------------|-----------|
-| 30440 | Track metadata | A440 Hz tuning standard |
-| 30441 | Album metadata | |
-| 30442 | Artist profile | NIP-72 community format |
-| 30443 | Music playlist | |
+| Kind | Description |
+|------|-------------|
+| 30440 | Track metadata |
 
-## Key Patterns
+We only care about tracks. No albums, artists, playlists.
 
-### Querying Tracks
+## Key APIs
 
-```typescript
-import { useNDK } from '@/lib/ndk';
-import { NostrEventKind } from '@/types/nostr';
+### Wavlake API (requires NIP-98 auth)
 
-function useTracks() {
-  const { ndk } = useNDK();
-  
-  return useQuery({
-    queryKey: ['tracks'],
-    queryFn: async () => {
-      const events = await ndk?.fetchEvents({
-        kinds: [NostrEventKind.TRACK_METADATA],
-        limit: 50,
-      });
-      return parseTrackEvents(events);
-    },
-    enabled: !!ndk,
-  });
-}
+```
+GET  /v1/wallet/balance     # Get credit balance
+POST /v1/tracks/{id}/purchase  # Purchase track
 ```
 
-### Audio Playback
+### NIP-98 Auth
 
-Use a global Zustand store for player state:
-
-```typescript
-// stores/player.ts
-interface PlayerState {
-  currentTrack: Track | null;
-  isPlaying: boolean;
-  queue: Track[];
-  play: (track: Track) => void;
-  pause: () => void;
-  next: () => void;
-}
-```
-
-### User Authentication
-
-Support multiple login methods:
-1. **NIP-07** - Browser extension (nos2x, Alby)
-2. **NIP-46** - Nostr Connect (remote signer)
-3. **nsec** - Direct key input (with warnings)
+Sign a Nostr event with kind 27235, include as Authorization header.
 
 ## Relay Configuration
 
-Default relays:
-- `wss://relay.wavlake.com` - Primary Wavlake relay
+- `wss://relay.wavlake.com` - Primary
 - `wss://relay.damus.io` - Fallback
-- `wss://nos.lol` - Fallback
-- `wss://relay.nostr.band` - Discovery/search
-
-## PRD Workflow
-
-Features are defined as PRDs in `docs/PRD/daemon-queue/`. The compound automation picks them up and implements them.
-
-### Adding a Feature
-
-1. Create `docs/PRD/daemon-queue/feature-name/README.md`
-2. Define clear phases with acceptance criteria
-3. The daemon implements phase-by-phase, creating PRs
 
 ## Reference
 
-- [NIP-wavlake-music spec](https://github.com/wavlake/monorepo/blob/main/docs/PRD/NIPs/NIP-wavlake-music.md)
-- [NDK Documentation](https://ndk.fiatjaf.com/)
-- [Nostr NIPs](https://github.com/nostr-protocol/nips)
+- [NIP-wavlake-music](https://github.com/wavlake/monorepo/blob/main/docs/PRD/NIPs/NIP-wavlake-music.md)
+- [NDK Docs](https://ndk.fiatjaf.com/)

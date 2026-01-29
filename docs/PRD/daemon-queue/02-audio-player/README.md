@@ -1,16 +1,14 @@
-# PRD: Audio Player
+# PRD: Audio Player (Barebones)
 
-Implement a functional audio player for streaming tracks.
+Minimal audio playback for tracks.
 
 ## Goal
 
-Users can click a track and hear it play with standard playback controls.
+Click a track, hear it play. Basic controls only.
 
 ## Implementation Phases
 
-### Phase 1: Player Store
-
-Create global state for audio playback.
+### Phase 1: Player Store and Playback
 
 **Tasks:**
 1. Create `src/stores/player.ts` (Zustand)
@@ -20,80 +18,28 @@ Create global state for audio playback.
      isPlaying: boolean;
      currentTime: number;
      duration: number;
-     volume: number;
-     queue: Track[];
-     // Actions
      play: (track: Track) => void;
      pause: () => void;
      resume: () => void;
      seek: (time: number) => void;
-     setVolume: (volume: number) => void;
-     addToQueue: (track: Track) => void;
-     next: () => void;
-     previous: () => void;
    }
    ```
 
 2. Create `src/hooks/useAudio.ts`
-   - Manage HTML5 Audio element
+   - Create/manage HTML5 Audio element
    - Sync with player store
-   - Handle events (timeupdate, ended, error)
+   - Handle timeupdate, ended, error events
 
-3. Write tests for player store
+3. Update `Layout.tsx` player bar
+   - Show current track info
+   - Play/pause button (functional)
+   - Progress bar (visual + seekable)
+   - Current time / duration
 
-**Acceptance Criteria:**
-- [ ] Player store manages playback state
-- [ ] Audio element plays track URLs
-- [ ] Time updates reflect in store
-- [ ] Queue management works
-
-### Phase 2: Player UI
-
-Build the player bar component.
-
-**Tasks:**
-1. Create `src/components/player/PlayerBar.tsx`
-   - Current track info (artwork, title, artist)
-   - Play/pause button
-   - Previous/next buttons
-   - Progress bar (seekable)
-   - Volume slider
-   - Current time / duration display
-
-2. Create `src/components/player/ProgressBar.tsx`
-   - Visual progress indicator
-   - Click to seek
-   - Drag to scrub
-
-3. Update Layout.tsx to use PlayerBar
+4. Wire up track clicks to player
 
 **Acceptance Criteria:**
-- [ ] Player bar shows current track
-- [ ] Play/pause toggles playback
-- [ ] Progress bar updates in real-time
+- [ ] Click track → audio plays
+- [ ] Play/pause button works
+- [ ] Progress bar shows position
 - [ ] Can seek by clicking progress bar
-- [ ] Volume control works
-
-### Phase 3: Queue and Keyboard Controls
-
-Add queue UI and keyboard shortcuts.
-
-**Tasks:**
-1. Create queue panel (slide-out or modal)
-   - Show upcoming tracks
-   - Reorder tracks (drag and drop)
-   - Remove from queue
-
-2. Add keyboard shortcuts
-   - Space: play/pause
-   - Arrow left/right: seek
-   - Arrow up/down: volume
-   - N: next track
-   - P: previous track
-
-3. Persist volume preference to localStorage
-
-**Acceptance Criteria:**
-- [ ] Queue panel shows upcoming tracks
-- [ ] Keyboard shortcuts work
-- [ ] Volume persists across sessions
