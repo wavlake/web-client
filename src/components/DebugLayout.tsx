@@ -1,6 +1,7 @@
 import React, { ReactNode, useState, useEffect } from 'react';
 import { DebugPanel, JsonViewer } from './DebugPanel';
 import { DebugLog } from './DebugLog';
+import { LoginModal } from './LoginModal';
 import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';
 import { usePlayerStore } from '../stores/player';
@@ -232,7 +233,7 @@ function NowPlaying() {
 
 export default function DebugLayout({ trackList }: DebugLayoutProps) {
   const [pubkey, setPubkey] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Check for existing login on mount
   useEffect(() => {
@@ -243,42 +244,43 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
     }
   }, []);
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     if (pubkey) {
       // Logout
       localStorage.removeItem('nostr_pubkey');
+      localStorage.removeItem('nostr_privkey');
       setPubkey(null);
       debugLog('event', 'User logged out');
       return;
     }
 
-    // Check for NIP-07 extension
-    if (!window.nostr) {
-      debugLog('error', 'No Nostr extension found');
-      alert('No Nostr extension found. Install Alby or nos2x to connect.');
-      return;
-    }
+    // Show login modal
+    setShowLoginModal(true);
+  };
 
-    setConnecting(true);
-    debugLog('event', 'Connecting to Nostr extension...');
-    try {
-      const pk = await window.nostr.getPublicKey();
-      localStorage.setItem('nostr_pubkey', pk);
-      setPubkey(pk);
-      debugLog('event', 'Connected successfully', { pubkey: pk.slice(0, 16) + '...' });
-    } catch (err) {
-      console.error('Failed to connect:', err);
-      debugLog('error', 'Failed to connect', { error: String(err) });
-      alert('Failed to connect. Please try again.');
-    } finally {
-      setConnecting(false);
+  const handleLogin = (newPubkey: string, privkey?: string) => {
+    localStorage.setItem('nostr_pubkey', newPubkey);
+    if (privkey) {
+      localStorage.setItem('nostr_privkey', privkey);
     }
+    setPubkey(newPubkey);
+    debugLog('event', 'User logged in', { 
+      pubkey: newPubkey.slice(0, 16) + '...',
+      method: privkey ? 'nsec' : 'NIP-07'
+    });
   };
 
   const shortPubkey = pubkey ? `${pubkey.slice(0, 8)}...` : null;
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={handleLogin}
+      />
+
       {/* Header */}
       <header className="flex-none border-b border-surface-light bg-surface/80 backdrop-blur-sm">
         <div className="flex h-12 items-center justify-between px-4">
@@ -292,10 +294,9 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
           <div>
             <button 
               onClick={handleConnect}
-              disabled={connecting}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 transition-colors"
             >
-              {connecting ? 'Connecting...' : pubkey ? shortPubkey : 'Connect'}
+              {pubkey ? shortPubkey : 'Connect'}
             </button>
           </div>
         </div>
