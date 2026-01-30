@@ -284,6 +284,7 @@ function NowPlaying() {
 export default function DebugLayout({ trackList }: DebugLayoutProps) {
   const [pubkey, setPubkey] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [logExpanded, setLogExpanded] = useState(false);
 
   // Check for existing login on mount
   useEffect(() => {
@@ -387,7 +388,19 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
       </div>
 
       {/* Bottom: Debug log stream */}
-      <div className="flex-none h-48 relative">
+      <div 
+        className={`flex-none relative transition-all duration-200 ${
+          logExpanded ? 'h-[50vh]' : 'h-48'
+        }`}
+      >
+        {/* Expand/collapse button */}
+        <button
+          onClick={() => setLogExpanded(!logExpanded)}
+          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 px-3 py-1 text-xs bg-surface border border-surface-light rounded-full text-gray-400 hover:text-white hover:bg-surface-light transition-colors"
+          title={logExpanded ? 'Collapse log' : 'Expand log to 50%'}
+        >
+          {logExpanded ? '▼ Collapse' : '▲ Expand'}
+        </button>
         <DebugLog />
       </div>
     </div>
