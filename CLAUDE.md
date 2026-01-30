@@ -1,5 +1,31 @@
 # CLAUDE.md
 
+Wavlake Web Client + SDK Monorepo.
+
+## Packages
+
+```
+packages/
+├── paywall-client/    # @wavlake/paywall-client - Stateless API client
+├── wallet/            # @wavlake/wallet - Cashu wallet state (TODO)
+├── paywall-react/     # @wavlake/paywall-react - React hooks (TODO)
+└── credits-client/    # Reference implementation (single file)
+```
+
+## SDK Implementation Status
+
+See `/home/clawd/clawd/users/josh_1994891486/workspace/paywall-sdk-plan/PLAN.md` for full plan.
+
+- [x] Phase 1: `@wavlake/paywall-client` - COMPLETE
+- [ ] Phase 2: `@wavlake/wallet`
+- [ ] Phase 3: `@wavlake/paywall-react`
+- [ ] Phase 4: `@wavlake/paywall-react-native`
+- [ ] Phase 5: Documentation & Examples
+
+---
+
+## Web Client (apps/web)
+
 Debug client for Wavlake paywall system. **Expose everything.**
 
 ## Purpose

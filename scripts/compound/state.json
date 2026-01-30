@@ -1,15 +1,21 @@
 {
   "lastReview": "2026-01-30T06:45:00.000Z",
-  "lastImplement": "2026-01-29T22:15:00.000Z",
+  "lastImplement": "2026-01-30T07:15:00.000Z",
   "totalReviews": 1,
-  "totalPRsCreated": 1,
-  "currentPRD": "01-nostr-track-browsing",
+  "totalPRsCreated": 2,
+  "currentPRD": "02-cashu-wallet",
   "history": [
     {
       "prd": "01-nostr-track-browsing",
       "phase": 1,
       "pr": "https://github.com/wavlake/web-client/pull/1",
       "timestamp": "2026-01-29T22:15:00.000Z"
+    },
+    {
+      "prd": "02-cashu-wallet",
+      "phase": 2,
+      "pr": "https://github.com/wavlake/web-client/pull/4",
+      "timestamp": "2026-01-30T07:15:00.000Z"
     }
   ]
 }

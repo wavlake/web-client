@@ -1,0 +1,28 @@
+{
+  "mintUrl": "https://nutshell-staging-854568123236.us-central1.run.app",
+  "unit": "usd",
+  "keysetId": "00ad82d4e3acaf21",
+  "proofs": [
+    {
+      "amount": 8,
+      "C": "037bdcfb29692382bc56aa589087655c2c08086ee339fdb9dcdd17c7f589507fb7",
+      "id": "00ad82d4e3acaf21",
+      "secret": "1fe45f8c0cbe25010cc88be62087c5aadb371d168b0cb842e815b82990a5bb8c",
+      "dleq": {
+        "s": "c7ee721100257c398d769aeb35e7a54fc5f30eaa02780482716592838a42e9a8",
+        "e": "a76b9e17bb05df78ccdcb45d69b05b0a8ad0102255e1c32265be4e75a408b195",
+        "r": "1a7884f0160adbc5b09fb7c4ce67d8fc1d48efd346a6cfbb4444976e18118970"
+      }
+    }
+  ],
+  "token": "cashuBo2FteDlodHRwczovL251dHNoZWxsLXN0YWdpbmctODU0NTY4MTIzMjM2LnVzLWNlbnRyYWwxLnJ1bi5hcHBhdWN1c2RhdIGiYWlIAK2C1OOsryFhcIKkYWEIYXN4QDFmZTQ1ZjhjMGNiZTI1MDEwY2M4OGJlNjIwODdjNWFhZGIzNzFkMTY4YjBjYjg0MmU4MTViODI5OTBhNWJiOGNhY1ghA3vc-ylpI4K8VqpYkIdlXCwICG7jOf253N0Xx_WJUH-3YWSjYWVYIKdrnhe7Bd94zNy0XWmwWwqK0BAiVeHDImW-TnWkCLGVYXNYIMfuchEAJXw5jXaa6zXnpU_F8w6qAngEgnFlkoOKQumoYXJYIBp4hPAWCtvFsJ-3xM5n2PwdSO_TRqbPu0REl24YEYlwpGFhAmFzeEBhYTI3MTk4OGY4ODY4OGRjZjZiMTU3NGViYzZiYjE4MmU1MmYyOTc4Y2Q5NjE2MzFlOTRmNDBkODdlN2Y1ZmJlYWNYIQOrRk5XR_avu20bhWUfc5yCnqO0IE8mV6xY37VQNMm15GFko2FlWCAY1KU0DowFN7oHhXTuuVlfFNqYLFErYw_F0LgCZ9I1fWFzWCBNljpQwUTtEBIk1Gv5FxNfy1q05Nyg8UY__tXlfmjPE2FyWCAvTJMvINLfbw4JH4DQ8YlB9tgM51AIsBzRopiXF_XLqA",
+  "mintedAt": "2026-01-29T23:24:11.562Z",
+  "spent": [
+    {
+      "amount": 2,
+      "track": "track-243a7aba-9d56-41a6-ae36-ee5bbb5d6089",
+      "title": "Calina",
+      "spentAt": "2026-01-29T23:24:47.987Z"
+    }
+  ]
+}

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Alternative Wavlake web client - Nostr-native music streaming",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
