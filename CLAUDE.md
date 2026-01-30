@@ -110,6 +110,34 @@ debugStore.addLog({
 });
 ```
 
+## Payment Modes
+
+Three strategies for paying at play time, configurable via Settings:
+
+### 1. SINGLE-REQUEST (fastest, ~124ms)
+Pre-built tokens + one HTTP request. Best UX.
+
+```typescript
+// Token cache pre-builds exact denomination tokens on load
+const token = useTokenCacheStore.getState().popToken();
+// Single request with payment
+const response = await fetch(`/content/${dTag}`, {
+  headers: { 'X-Ecash-Token': token.token }
+});
+```
+
+### 2. JIT (Just-In-Time, ~300-400ms)
+Swap proofs at play time, keep change client-side.
+
+```typescript
+import { jitSwap } from './lib/jitSwap';
+const { token, keepProofs } = await jitSwap(price, proofs);
+```
+
+### 3. DIRECT (server-side change)
+Send overpayment, server returns change proofs.
+Simplest client code, server handles denomination.
+
 ## Cashu Token Format
 
 Using v4 tokens (cashuB...):
@@ -123,3 +151,44 @@ const token = getEncodedTokenV4({
   unit: 'usd',
 });
 ```
+
+## Key Stores
+
+```
+stores/
+├── wallet.ts       # Cashu proofs (persistent)
+├── tokenCache.ts   # Pre-built tokens for single-request (persistent)
+├── settings.ts     # Feature toggles: prebuildEnabled, jitSwapEnabled
+├── player.ts       # Playback state
+└── debug.ts        # Debug log entries
+```
+
+## Crypto Dependencies
+
+For Nostr key operations, use noble/scure directly (not nostr-tools):
+
+```typescript
+import { schnorr } from '@noble/curves/secp256k1';
+import { bytesToHex } from '@noble/hashes/utils';
+import { bech32 } from '@scure/base';
+
+// Decode nsec → hex private key
+const { words } = bech32.decode(nsec, 1500);
+const privkeyHex = bytesToHex(new Uint8Array(bech32.fromWords(words)));
+
+// Derive pubkey
+const pubkeyHex = bytesToHex(schnorr.getPublicKey(privkeyHex));
+```
+
+## Gotchas
+
+**Header name:** `X-Ecash-Token` (not X-Cashu-Token)
+
+**Response formats:** Handle both flat and nested:
+```typescript
+const url = data.data?.url || data.url;
+```
+
+**Wallet.send() returns:** `{ send: Proof[], keep: Proof[] }`
+- `send` = proofs to pay with
+- `keep` = change to retain
