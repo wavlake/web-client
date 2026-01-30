@@ -12,7 +12,7 @@
  * Toggle: Set ENABLED = false to disable
  */
 
-import { Wallet, Mint, getEncodedTokenV4, type Proof } from '@cashu/cashu-ts';
+import { Wallet, Mint, getEncodedTokenV4 } from '@cashu/cashu-ts';
 import { CONFIG } from './config';
 import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';

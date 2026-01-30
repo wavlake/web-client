@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export interface LogEntry {
   id: string;
   timestamp: Date;
-  type: 'request' | 'response' | 'wallet' | 'player' | 'event' | 'error';
+  type: 'request' | 'response' | 'wallet' | 'player' | 'event' | 'error' | 'app' | 'tokenCache' | 'smartPrebuild';
   label: string;
   data: unknown;
 }

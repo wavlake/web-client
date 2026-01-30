@@ -15,7 +15,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Wallet, Mint, getEncodedTokenV4, type Proof } from '@cashu/cashu-ts';
+import { Wallet, Mint, getEncodedTokenV4 } from '@cashu/cashu-ts';
 import { CONFIG } from '../lib/config';
 import { debugLog } from './debug';
 import { useWalletStore } from './wallet';

@@ -4,7 +4,6 @@ import { useContentAccess } from '../hooks/useContentAccess';
 import { debugLog } from '../stores/debug';
 import { usePlayerStore } from '../stores/player';
 import { useWalletStore } from '../stores/wallet';
-import { useTokenCacheStore } from '../stores/tokenCache';
 import { CONFIG } from '../lib/config';
 import { 
   prebuildFromTracks, 
@@ -121,7 +120,6 @@ export default function TrackList() {
   const play = usePlayerStore((s) => s.play);
   const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
   const walletBalance = useWalletStore((s) => s.getBalance());
-  const tokenCount = useTokenCacheStore((s) => s.tokens.length);
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
