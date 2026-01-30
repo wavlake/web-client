@@ -9,6 +9,9 @@ const TYPE_COLORS: Record<LogEntry['type'], string> = {
   player: 'text-purple-400',
   event: 'text-cyan-400',
   error: 'text-red-400',
+  app: 'text-gray-400',
+  tokenCache: 'text-orange-400',
+  smartPrebuild: 'text-pink-400',
 };
 
 const TYPE_ICONS: Record<LogEntry['type'], string> = {
@@ -18,6 +21,9 @@ const TYPE_ICONS: Record<LogEntry['type'], string> = {
   player: '🎵',
   event: '⚡',
   error: '❌',
+  app: '🚀',
+  tokenCache: '🎟️',
+  smartPrebuild: '🧠',
 };
 
 function LogEntryRow({ entry }: { entry: LogEntry }) {
