@@ -4,12 +4,13 @@ import { useContentAccess } from '../hooks/useContentAccess';
 import { debugLog } from '../stores/debug';
 import { usePlayerStore } from '../stores/player';
 import { useWalletStore } from '../stores/wallet';
+import { useSettingsStore } from '../stores/settings';
 import { CONFIG } from '../lib/config';
 import { 
   prebuildFromTracks, 
   getTokenForAmount, 
   hasTokenForAmount,
-  SMART_PREBUILD_ENABLED,
+  clearSmartTokens,
 } from '../lib/smartPrebuild';
 import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
@@ -120,16 +121,26 @@ export default function TrackList() {
   const play = usePlayerStore((s) => s.play);
   const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
   const walletBalance = useWalletStore((s) => s.getBalance());
+  const prebuildEnabled = useSettingsStore((s) => s.prebuildEnabled);
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Track if we've already prebuilt for this track list
   const prebuildDoneRef = useRef(false);
+  const lastPrebuildSetting = useRef(prebuildEnabled);
 
-  // Smart prebuild: when tracks load, prebuild tokens for their prices
+  // Smart prebuild: when tracks load and prebuild is enabled, prebuild tokens for their prices
   useEffect(() => {
-    if (!SMART_PREBUILD_ENABLED) return;
+    // If prebuild was just disabled, clear existing tokens
+    if (!prebuildEnabled && lastPrebuildSetting.current) {
+      debugLog('smartPrebuild', 'Prebuild disabled, clearing tokens');
+      clearSmartTokens();
+      prebuildDoneRef.current = false;
+    }
+    lastPrebuildSetting.current = prebuildEnabled;
+    
+    if (!prebuildEnabled) return;
     if (loading || tracks.length === 0) return;
     if (prebuildDoneRef.current) return;
     if (walletBalance === 0) return;
@@ -143,27 +154,32 @@ export default function TrackList() {
     prebuildFromTracks(tracks).catch((err) => {
       debugLog('error', 'Smart prebuild failed', { error: err.message });
     });
-  }, [loading, tracks, walletBalance]);
+  }, [loading, tracks, walletBalance, prebuildEnabled]);
 
   const handlePlay = async (track: Track) => {
     const isPaywalled = track.metadata.access_mode === 'paywall';
     const price = track.metadata.price_credits || 0;
     const cacheStatus = getTokenCacheStatus();
-    const hasSmartToken = hasTokenForAmount(price);
+    const hasSmartToken = prebuildEnabled && hasTokenForAmount(price);
+    
+    const mode = !isPaywalled ? 'FREE' :
+                 hasSmartToken ? 'PREBUILD' :
+                 prebuildEnabled && cacheStatus.tokenCount > 0 ? 'CACHE' :
+                 !prebuildEnabled ? 'JIT' : 'STANDARD';
     
     debugLog('event', `Track clicked: ${track.metadata.title}`, {
       trackId: track.id,
       dTag: track.dTag,
       isPaywalled,
       price,
-      tokenCacheCount: cacheStatus.tokenCount,
+      prebuildEnabled,
       hasSmartToken,
-      mode: isPaywalled && (hasSmartToken || cacheStatus.tokenCount > 0) ? 'SINGLE-REQUEST' : 'STANDARD',
+      mode,
     });
 
-    // For paywalled tracks, try smart prebuild tokens first (exact denomination)
+    // PREBUILD MODE: Use smart prebuild tokens (exact denomination)
     if (isPaywalled && hasSmartToken) {
-      debugLog('event', `⚡ Using SMART PREBUILD token (${price} credits)`);
+      debugLog('event', `⚡ Using PREBUILD token (${price} credits)`);
       const smartToken = getTokenForAmount(price);
       
       if (smartToken) {
@@ -180,21 +196,21 @@ export default function TrackList() {
           if (response.ok) {
             const data = await response.json();
             const contentUrl = data.data?.url || data.url;
-            debugLog('response', `Smart prebuild success in ${elapsed.toFixed(0)}ms`, { url: contentUrl?.slice(0, 50) });
+            debugLog('response', `PREBUILD success in ${elapsed.toFixed(0)}ms`, { url: contentUrl?.slice(0, 50) });
             play(track, contentUrl);
             return;
           }
           
-          debugLog('error', `Smart prebuild request failed: ${response.status}`);
+          debugLog('error', `PREBUILD request failed: ${response.status}`);
         } catch (err) {
-          debugLog('error', 'Smart prebuild request error', { error: err instanceof Error ? err.message : 'unknown' });
+          debugLog('error', 'PREBUILD request error', { error: err instanceof Error ? err.message : 'unknown' });
         }
       }
     }
 
-    // Fallback: try 1-credit token cache (for 1-credit tracks)
-    if (isPaywalled && price === 1 && cacheStatus.tokenCount > 0) {
-      debugLog('event', '⚡ Using SINGLE-REQUEST mode (1-credit cache)');
+    // CACHE MODE: Use 1-credit token cache (for 1-credit tracks only)
+    if (isPaywalled && prebuildEnabled && price === 1 && cacheStatus.tokenCount > 0) {
+      debugLog('event', '⚡ Using CACHE mode (1-credit)');
       const result = await singleRequestAccess(track);
       
       if (result.success) {
@@ -207,11 +223,36 @@ export default function TrackList() {
         return;
       }
       
-      debugLog('error', 'Single-request access failed', { error: 'error' in result ? result.error : 'unknown' });
+      debugLog('error', 'CACHE mode failed', { error: 'error' in result ? result.error : 'unknown' });
       return;
     }
 
-    // Standard flow: check access first
+    // JIT MODE: Just-in-time swap (when prebuild is disabled)
+    if (isPaywalled && !prebuildEnabled && walletBalance >= price) {
+      debugLog('event', `🔄 Using JIT mode - swapping ${price} credits just-in-time`);
+      const startTime = performance.now();
+      
+      // Select proofs and do just-in-time payment
+      const proofs = selectProofsForAmount(price);
+      if (proofs) {
+        const result = await purchaseAccess(track, proofs);
+        const elapsed = performance.now() - startTime;
+        
+        if (result.success) {
+          debugLog('response', `JIT success in ${elapsed.toFixed(0)}ms`, { url: result.url?.slice(0, 50) });
+          play(track, result.url);
+          return;
+        }
+        
+        if (result.requiresPayment) {
+          debugLog('error', 'JIT payment rejected', { price: result.priceCredits });
+          setPaymentState({ track, price: result.priceCredits });
+          return;
+        }
+      }
+    }
+
+    // STANDARD MODE: Check access first (for free tracks or when no balance)
     const result = await checkAccess(track);
 
     if (result.success) {

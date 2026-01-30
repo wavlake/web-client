@@ -6,6 +6,7 @@ import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';
 import { usePlayerStore } from '../stores/player';
 import { useTokenCacheStore } from '../stores/tokenCache';
+import { useSettingsStore } from '../stores/settings';
 import { PurchasePanel } from './PurchasePanel';
 import AudioPlayer from './AudioPlayer';
 
@@ -162,6 +163,55 @@ function ApiConfigPanel() {
           onChange={handleUrlChange}
           className="w-full px-2 py-1.5 text-xs font-mono bg-background border border-surface-light rounded text-white focus:outline-none focus:border-primary"
         />
+      </div>
+    </DebugPanel>
+  );
+}
+
+// Settings panel with feature toggles
+function SettingsPanel() {
+  const prebuildEnabled = useSettingsStore((s) => s.prebuildEnabled);
+  const togglePrebuild = useSettingsStore((s) => s.togglePrebuild);
+
+  return (
+    <DebugPanel title="⚙️ Settings">
+      <div className="space-y-3">
+        {/* Prebuild Toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs text-white block">Smart Prebuild</span>
+            <span className="text-[10px] text-gray-500">
+              {prebuildEnabled ? 'Pre-swap tokens on load' : 'Just-in-time swap'}
+            </span>
+          </div>
+          <button
+            onClick={togglePrebuild}
+            className={`relative w-10 h-5 rounded-full transition-colors ${
+              prebuildEnabled ? 'bg-primary' : 'bg-surface-light'
+            }`}
+          >
+            <div
+              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                prebuildEnabled ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Info */}
+        <div className="text-[10px] text-gray-500 p-2 bg-surface rounded">
+          {prebuildEnabled ? (
+            <>
+              <span className="text-green-400">ON:</span> Tokens pre-built for track prices on load.
+              Single request per play (~120ms).
+            </>
+          ) : (
+            <>
+              <span className="text-yellow-400">OFF:</span> Tokens swapped just-in-time before each play.
+              Extra swap request (~300-500ms).
+            </>
+          )}
+        </div>
       </div>
     </DebugPanel>
   );
@@ -327,6 +377,7 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
         <aside className="w-80 flex-none border-l border-surface-light overflow-auto bg-surface/30">
           <div className="p-3 space-y-3">
             <h2 className="text-sm font-medium text-white">Debug Panels</h2>
+            <SettingsPanel />
             <TokenCachePanel />
             <PurchasePanel />
             <WalletPanel />
