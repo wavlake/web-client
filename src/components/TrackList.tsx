@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTracks } from '../hooks/useTracks';
 import { useContentAccess } from '../hooks/useContentAccess';
 import { debugLog } from '../stores/debug';
 import { usePlayerStore } from '../stores/player';
 import { useWalletStore } from '../stores/wallet';
 import { useTokenCacheStore } from '../stores/tokenCache';
+import { CONFIG } from '../lib/config';
+import { 
+  prebuildFromTracks, 
+  getTokenForAmount, 
+  hasTokenForAmount,
+  SMART_PREBUILD_ENABLED,
+} from '../lib/smartPrebuild';
 import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
 
@@ -113,27 +120,83 @@ export default function TrackList() {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const play = usePlayerStore((s) => s.play);
   const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
+  const walletBalance = useWalletStore((s) => s.getBalance());
   const tokenCount = useTokenCacheStore((s) => s.tokens.length);
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Track if we've already prebuilt for this track list
+  const prebuildDoneRef = useRef(false);
+
+  // Smart prebuild: when tracks load, prebuild tokens for their prices
+  useEffect(() => {
+    if (!SMART_PREBUILD_ENABLED) return;
+    if (loading || tracks.length === 0) return;
+    if (prebuildDoneRef.current) return;
+    if (walletBalance === 0) return;
+    
+    prebuildDoneRef.current = true;
+    debugLog('smartPrebuild', 'Tracks loaded, starting smart prebuild...', {
+      trackCount: tracks.length,
+      balance: walletBalance,
+    });
+    
+    prebuildFromTracks(tracks).catch((err) => {
+      debugLog('error', 'Smart prebuild failed', { error: err.message });
+    });
+  }, [loading, tracks, walletBalance]);
 
   const handlePlay = async (track: Track) => {
     const isPaywalled = track.metadata.access_mode === 'paywall';
+    const price = track.metadata.price_credits || 0;
     const cacheStatus = getTokenCacheStatus();
+    const hasSmartToken = hasTokenForAmount(price);
     
     debugLog('event', `Track clicked: ${track.metadata.title}`, {
       trackId: track.id,
       dTag: track.dTag,
       isPaywalled,
-      price: track.metadata.price_credits,
+      price,
       tokenCacheCount: cacheStatus.tokenCount,
-      mode: isPaywalled && cacheStatus.tokenCount > 0 ? 'SINGLE-REQUEST' : 'STANDARD',
+      hasSmartToken,
+      mode: isPaywalled && (hasSmartToken || cacheStatus.tokenCount > 0) ? 'SINGLE-REQUEST' : 'STANDARD',
     });
 
-    // For paywalled tracks with cached tokens, use single-request mode (fastest)
-    if (isPaywalled && cacheStatus.tokenCount > 0) {
-      debugLog('event', '⚡ Using SINGLE-REQUEST mode');
+    // For paywalled tracks, try smart prebuild tokens first (exact denomination)
+    if (isPaywalled && hasSmartToken) {
+      debugLog('event', `⚡ Using SMART PREBUILD token (${price} credits)`);
+      const smartToken = getTokenForAmount(price);
+      
+      if (smartToken) {
+        const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+        const startTime = performance.now();
+        
+        try {
+          const response = await fetch(url, {
+            headers: { 'X-Ecash-Token': smartToken.token },
+          });
+          
+          const elapsed = performance.now() - startTime;
+          
+          if (response.ok) {
+            const data = await response.json();
+            const contentUrl = data.data?.url || data.url;
+            debugLog('response', `Smart prebuild success in ${elapsed.toFixed(0)}ms`, { url: contentUrl?.slice(0, 50) });
+            play(track, contentUrl);
+            return;
+          }
+          
+          debugLog('error', `Smart prebuild request failed: ${response.status}`);
+        } catch (err) {
+          debugLog('error', 'Smart prebuild request error', { error: err instanceof Error ? err.message : 'unknown' });
+        }
+      }
+    }
+
+    // Fallback: try 1-credit token cache (for 1-credit tracks)
+    if (isPaywalled && price === 1 && cacheStatus.tokenCount > 0) {
+      debugLog('event', '⚡ Using SINGLE-REQUEST mode (1-credit cache)');
       const result = await singleRequestAccess(track);
       
       if (result.success) {
@@ -142,11 +205,7 @@ export default function TrackList() {
       }
       
       if (result.requiresPayment) {
-        // Token was rejected or insufficient, show payment modal
-        setPaymentState({
-          track,
-          price: result.priceCredits,
-        });
+        setPaymentState({ track, price: result.priceCredits });
         return;
       }
       
