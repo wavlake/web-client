@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex } from '@noble/hashes/utils';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bech32 } from '@scure/base';
 import { debugLog } from '../stores/debug';
@@ -15,7 +15,8 @@ import { debugLog } from '../stores/debug';
 // Decode nsec bech32 to hex
 function decodeNsec(nsec: string): string | null {
   try {
-    const { prefix, words } = bech32.decode(nsec, 1500);
+    if (!nsec.startsWith('nsec1')) return null;
+    const { prefix, words } = bech32.decode(nsec as `nsec1${string}`, 1500);
     if (prefix !== 'nsec') return null;
     const bytes = bech32.fromWords(words);
     return bytesToHex(new Uint8Array(bytes));
