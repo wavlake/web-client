@@ -9,17 +9,89 @@ import { useTokenCacheStore } from '../stores/tokenCache';
 import { useSettingsStore } from '../stores/settings';
 import { PurchasePanel } from './PurchasePanel';
 import AudioPlayer from './AudioPlayer';
+import { getDecodedToken, type Token } from '@cashu/cashu-ts';
 
 interface DebugLayoutProps {
   trackList: ReactNode;
 }
 
-// Wallet panel connected to real store
+// Wallet panel connected to real store with token import
 function WalletPanel() {
   const proofs = useWalletStore(state => state.proofs);
   const pendingProofs = useWalletStore(state => state.pendingProofs);
   const balance = useWalletStore(state => state.getBalance());
+  const addProofs = useWalletStore(state => state.addProofs);
   const reset = useWalletStore(state => state.reset);
+
+  const [tokenInput, setTokenInput] = useState('');
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [selectedProofIndex, setSelectedProofIndex] = useState<number | null>(null);
+
+  const handleImportToken = async () => {
+    setImportError(null);
+    setImportSuccess(null);
+
+    const trimmed = tokenInput.trim();
+    if (!trimmed) {
+      setImportError('Please enter a token');
+      return;
+    }
+
+    // Validate token format
+    if (!trimmed.startsWith('cashuA') && !trimmed.startsWith('cashuB')) {
+      setImportError('Invalid token format. Must start with cashuA or cashuB');
+      return;
+    }
+
+    try {
+      debugLog('wallet', 'Attempting to decode token', { 
+        prefix: trimmed.slice(0, 10),
+        length: trimmed.length 
+      });
+
+      const decoded: Token = getDecodedToken(trimmed);
+      
+      // Extract proofs from the decoded token
+      // Token structure: { mint: string, proofs: Proof[], unit?: string }
+      // or for v3: { token: [{ mint, proofs }] }
+      let importedProofs: typeof proofs = [];
+      
+      if ('proofs' in decoded && Array.isArray(decoded.proofs)) {
+        // v4 format
+        importedProofs = decoded.proofs;
+      } else if ('token' in decoded && Array.isArray((decoded as { token: { proofs: typeof proofs }[] }).token)) {
+        // v3 format
+        const v3 = decoded as { token: { proofs: typeof proofs }[] };
+        importedProofs = v3.token.flatMap(t => t.proofs);
+      }
+
+      if (importedProofs.length === 0) {
+        setImportError('No proofs found in token');
+        return;
+      }
+
+      const totalAmount = importedProofs.reduce((sum, p) => sum + p.amount, 0);
+      
+      debugLog('wallet', 'Token decoded successfully', {
+        proofCount: importedProofs.length,
+        totalAmount,
+        proofs: importedProofs.map(p => ({ amount: p.amount, id: p.id }))
+      });
+
+      addProofs(importedProofs);
+      setImportSuccess(`Imported ${importedProofs.length} proof(s) totaling ${totalAmount} credits`);
+      setTokenInput('');
+      
+      // Clear success message after 3s
+      setTimeout(() => setImportSuccess(null), 3000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to decode token';
+      debugLog('error', 'Token import failed', { error: message });
+      setImportError(message);
+    }
+  };
 
   return (
     <DebugPanel title="Wallet State">
@@ -28,20 +100,94 @@ function WalletPanel() {
           <span className="text-xs text-gray-400">Balance</span>
           <span className="text-sm font-mono text-green-400">{balance} credits</span>
         </div>
+        
+        {/* Proofs list with click-to-inspect */}
         <div>
           <span className="text-xs text-gray-400 block mb-1">Proofs ({proofs.length})</span>
           {proofs.length > 0 ? (
-            <JsonViewer data={proofs.map(p => ({ amount: p.amount, id: p.id?.slice(0, 8) }))} maxHeight="100px" />
+            <div className="space-y-1">
+              {proofs.map((p, i) => (
+                <div key={p.secret?.slice(0, 8) || i}>
+                  <button
+                    onClick={() => setSelectedProofIndex(selectedProofIndex === i ? null : i)}
+                    className="w-full text-left p-1.5 bg-surface-light hover:bg-surface rounded text-xs font-mono flex justify-between items-center"
+                  >
+                    <span className="text-gray-300">
+                      {p.amount} credits
+                    </span>
+                    <span className="text-gray-500 text-[10px]">
+                      {selectedProofIndex === i ? '▼' : '▶'} {p.id?.slice(0, 8)}
+                    </span>
+                  </button>
+                  {selectedProofIndex === i && (
+                    <div className="mt-1 ml-2">
+                      <JsonViewer 
+                        data={{
+                          amount: p.amount,
+                          id: p.id,
+                          C: p.C,
+                          secret: p.secret
+                        }} 
+                        maxHeight="120px" 
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
             <span className="text-xs text-gray-500">No proofs loaded</span>
           )}
         </div>
+
         {pendingProofs.length > 0 && (
           <div>
             <span className="text-xs text-yellow-400 block mb-1">Pending ({pendingProofs.length})</span>
             <JsonViewer data={pendingProofs.map(p => ({ amount: p.amount }))} maxHeight="60px" />
           </div>
         )}
+
+        {/* Token Import Section */}
+        <div className="border-t border-surface-light pt-3">
+          <button
+            onClick={() => setShowImport(!showImport)}
+            className="w-full py-1.5 text-xs font-medium bg-primary/20 text-primary rounded hover:bg-primary/30 transition-colors"
+          >
+            {showImport ? '− Hide Import' : '+ Import Token'}
+          </button>
+          
+          {showImport && (
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                placeholder="Paste cashuA... or cashuB... token"
+                className="w-full px-2 py-1.5 text-xs font-mono bg-background border border-surface-light rounded text-white focus:outline-none focus:border-primary resize-none"
+                rows={3}
+              />
+              <button
+                onClick={handleImportToken}
+                disabled={!tokenInput.trim()}
+                className="w-full py-1.5 text-xs font-medium bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Import Proofs
+              </button>
+              
+              {importError && (
+                <div className="p-2 bg-red-900/30 border border-red-500/50 rounded">
+                  <p className="text-xs text-red-400">{importError}</p>
+                </div>
+              )}
+              
+              {importSuccess && (
+                <div className="p-2 bg-green-900/30 border border-green-500/50 rounded">
+                  <p className="text-xs text-green-400">{importSuccess}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {proofs.length > 0 && (
           <button
             onClick={reset}

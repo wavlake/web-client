@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePlayerStore } from '../stores/player';
 
 export default function AudioPlayer() {
