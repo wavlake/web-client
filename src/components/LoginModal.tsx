@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { nip19, getPublicKey } from 'nostr-tools';
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { debugLog } from '../stores/debug';
 
 interface LoginModalProps {
@@ -55,6 +56,7 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
     }
 
     try {
+      let privkeyBytes: Uint8Array;
       let privkeyHex: string;
 
       if (input.startsWith('nsec1')) {
@@ -64,20 +66,22 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
           setError('Invalid nsec format');
           return;
         }
-        privkeyHex = decoded.data as string;
+        privkeyBytes = decoded.data as Uint8Array;
+        privkeyHex = bytesToHex(privkeyBytes);
       } else if (/^[0-9a-fA-F]{64}$/.test(input)) {
         // Raw hex private key
         privkeyHex = input.toLowerCase();
+        privkeyBytes = hexToBytes(privkeyHex);
       } else {
         setError('Invalid format. Use nsec1... or 64-char hex');
         return;
       }
 
       // Derive public key
-      const pubkey = getPublicKey(privkeyHex);
+      const pubkeyHex = bytesToHex(getPublicKey(privkeyBytes));
       
-      debugLog('event', 'nsec login successful', { pubkey: pubkey.slice(0, 16) + '...' });
-      onLogin(pubkey, privkeyHex);
+      debugLog('event', 'nsec login successful', { pubkey: pubkeyHex.slice(0, 16) + '...' });
+      onLogin(pubkeyHex, privkeyHex);
       onClose();
       setNsecInput('');
     } catch (err) {
