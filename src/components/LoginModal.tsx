@@ -7,9 +7,28 @@
  */
 
 import { useState } from 'react';
-import { nip19, getPublicKey } from 'nostr-tools';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { schnorr } from '@noble/curves/secp256k1';
+import { bech32 } from '@scure/base';
 import { debugLog } from '../stores/debug';
+
+// Decode nsec bech32 to hex
+function decodeNsec(nsec: string): string | null {
+  try {
+    const { prefix, words } = bech32.decode(nsec, 1500);
+    if (prefix !== 'nsec') return null;
+    const bytes = bech32.fromWords(words);
+    return bytesToHex(new Uint8Array(bytes));
+  } catch {
+    return null;
+  }
+}
+
+// Get public key from private key (hex)
+function getPublicKeyFromPrivate(privkeyHex: string): string {
+  const pubkeyBytes = schnorr.getPublicKey(privkeyHex);
+  return bytesToHex(pubkeyBytes);
+}
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -56,29 +75,26 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
     }
 
     try {
-      let privkeyBytes: Uint8Array;
       let privkeyHex: string;
 
       if (input.startsWith('nsec1')) {
         // Decode bech32 nsec
-        const decoded = nip19.decode(input);
-        if (decoded.type !== 'nsec') {
+        const decoded = decodeNsec(input);
+        if (!decoded) {
           setError('Invalid nsec format');
           return;
         }
-        privkeyBytes = decoded.data as Uint8Array;
-        privkeyHex = bytesToHex(privkeyBytes);
+        privkeyHex = decoded;
       } else if (/^[0-9a-fA-F]{64}$/.test(input)) {
         // Raw hex private key
         privkeyHex = input.toLowerCase();
-        privkeyBytes = hexToBytes(privkeyHex);
       } else {
         setError('Invalid format. Use nsec1... or 64-char hex');
         return;
       }
 
       // Derive public key
-      const pubkeyHex = bytesToHex(getPublicKey(privkeyBytes));
+      const pubkeyHex = getPublicKeyFromPrivate(privkeyHex);
       
       debugLog('event', 'nsec login successful', { pubkey: pubkeyHex.slice(0, 16) + '...' });
       onLogin(pubkeyHex, privkeyHex);
