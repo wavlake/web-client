@@ -12,6 +12,7 @@ import {
   hasTokenForAmount,
   clearSmartTokens,
 } from '../lib/smartPrebuild';
+import { jitSwap } from '../lib/jitSwap';
 import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
 
@@ -120,6 +121,8 @@ export default function TrackList() {
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const play = usePlayerStore((s) => s.play);
   const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
+  const addProofs = useWalletStore((s) => s.addProofs);
+  const removeProofs = useWalletStore((s) => s.removeProofs);
   const walletBalance = useWalletStore((s) => s.getBalance());
   const prebuildEnabled = useSettingsStore((s) => s.prebuildEnabled);
   
@@ -245,22 +248,67 @@ export default function TrackList() {
       debugLog('event', `🔄 Using JIT mode - swapping ${price} credits just-in-time`);
       const startTime = performance.now();
       
-      // Select proofs and do just-in-time payment
+      // Select proofs that cover the amount
       const proofs = selectProofsForAmount(price);
       if (proofs) {
-        const result = await purchaseAccess(track, proofs);
-        const elapsed = performance.now() - startTime;
-        
-        if (result.success) {
-          debugLog('response', `JIT success in ${elapsed.toFixed(0)}ms`, { url: result.url?.slice(0, 50) });
-          play(track, result.url);
-          return;
-        }
-        
-        if (result.requiresPayment) {
-          debugLog('error', 'JIT payment rejected', { price: result.priceCredits });
-          setPaymentState({ track, price: result.priceCredits });
-          return;
+        try {
+          // Swap to exact denomination, keeping change
+          const swapResult = await jitSwap(price, proofs);
+          
+          // Update wallet: remove original proofs, add back change
+          const originalSecrets = proofs.map(p => p.secret);
+          removeProofs(originalSecrets);
+          if (swapResult.keepProofs.length > 0) {
+            addProofs(swapResult.keepProofs);
+          }
+          
+          // Make the payment request with exact-amount token
+          const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+          
+          debugLog('request', `GET ${url} [JIT MODE]`, {
+            trackId: track.id,
+            dTag: track.dTag,
+            payment: {
+              tokenAmount: swapResult.sendAmount,
+              trackPrice: price,
+              changeKept: swapResult.keepAmount,
+              unit: 'usd',
+            },
+            headers: {
+              'X-Ecash-Token': swapResult.token.slice(0, 30) + '...',
+            },
+          });
+          
+          const response = await fetch(url, {
+            headers: { 'X-Ecash-Token': swapResult.token },
+          });
+          
+          const elapsed = performance.now() - startTime;
+          
+          if (response.ok) {
+            const data = await response.json();
+            const contentUrl = data.data?.url || data.url;
+            debugLog('response', `JIT success in ${elapsed.toFixed(0)}ms`, { 
+              url: contentUrl?.slice(0, 50),
+              paid: swapResult.sendAmount,
+              changeKept: swapResult.keepAmount,
+            });
+            play(track, contentUrl);
+            return;
+          }
+          
+          if (response.status === 402) {
+            const data = await response.json();
+            debugLog('error', 'JIT payment rejected', { status: 402, data });
+            setPaymentState({ track, price: data.price_credits || price });
+            return;
+          }
+          
+          debugLog('error', `JIT request failed: ${response.status}`);
+        } catch (err) {
+          debugLog('error', 'JIT swap/payment error', { 
+            error: err instanceof Error ? err.message : 'unknown' 
+          });
         }
       }
     }
