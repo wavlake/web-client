@@ -13,6 +13,7 @@ import {
   clearSmartTokens,
 } from '../lib/smartPrebuild';
 import { jitSwap } from '../lib/jitSwap';
+import { getEncodedTokenV4 } from '@cashu/cashu-ts';
 import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
 
@@ -125,6 +126,7 @@ export default function TrackList() {
   const removeProofs = useWalletStore((s) => s.removeProofs);
   const walletBalance = useWalletStore((s) => s.getBalance());
   const prebuildEnabled = useSettingsStore((s) => s.prebuildEnabled);
+  const jitSwapEnabled = useSettingsStore((s) => s.jitSwapEnabled);
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -243,9 +245,95 @@ export default function TrackList() {
       return;
     }
 
-    // JIT MODE: Just-in-time swap (when prebuild is disabled)
-    if (isPaywalled && !prebuildEnabled && walletBalance >= price) {
-      debugLog('event', `🔄 Using JIT mode - swapping ${price} credits just-in-time`);
+    // DIRECT PAYMENT MODE: Send proofs, receive change from server (when prebuild disabled, JIT swap disabled)
+    if (isPaywalled && !prebuildEnabled && !jitSwapEnabled && walletBalance >= price) {
+      debugLog('event', `💸 Using DIRECT mode - sending proofs, expecting server-side change`);
+      const startTime = performance.now();
+      
+      // Select proofs that cover the amount (may be more than needed)
+      const proofs = selectProofsForAmount(price);
+      if (proofs) {
+        try {
+          const totalSending = proofs.reduce((s, p) => s + p.amount, 0);
+          
+          // Encode proofs as token
+          const token = getEncodedTokenV4({
+            mint: CONFIG.MINT_URL,
+            proofs,
+            unit: 'usd',
+          });
+          
+          const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+          
+          debugLog('request', `GET ${url} [DIRECT MODE]`, {
+            trackId: track.id,
+            dTag: track.dTag,
+            payment: {
+              tokenAmount: totalSending,
+              trackPrice: price,
+              expectedChange: totalSending - price,
+              unit: 'usd',
+            },
+            headers: {
+              'X-Ecash-Token': token.slice(0, 30) + '...',
+            },
+          });
+          
+          const response = await fetch(url, {
+            headers: { 'X-Ecash-Token': token },
+          });
+          
+          const elapsed = performance.now() - startTime;
+          
+          if (response.ok) {
+            const data = await response.json();
+            const contentUrl = data.data?.url || data.url;
+            
+            // Remove sent proofs from wallet
+            const sentSecrets = proofs.map(p => p.secret);
+            removeProofs(sentSecrets);
+            
+            // Handle change proofs from server (if returned)
+            const changeProofs = data.data?.change || data.change || [];
+            let changeAmount = 0;
+            if (changeProofs.length > 0) {
+              addProofs(changeProofs);
+              changeAmount = changeProofs.reduce((s: number, p: { amount: number }) => s + p.amount, 0);
+              debugLog('wallet', 'Received change proofs from server', {
+                changeProofCount: changeProofs.length,
+                changeAmount,
+              });
+            }
+            
+            debugLog('response', `DIRECT success in ${elapsed.toFixed(0)}ms`, { 
+              url: contentUrl?.slice(0, 50),
+              sent: totalSending,
+              price,
+              changeReceived: changeAmount,
+            });
+            play(track, contentUrl);
+            return;
+          }
+          
+          if (response.status === 402) {
+            const data = await response.json();
+            debugLog('error', 'DIRECT payment rejected', { status: 402, data });
+            setPaymentState({ track, price: data.price_credits || price });
+            return;
+          }
+          
+          debugLog('error', `DIRECT request failed: ${response.status}`);
+        } catch (err) {
+          debugLog('error', 'DIRECT payment error', { 
+            error: err instanceof Error ? err.message : 'unknown' 
+          });
+        }
+      }
+    }
+
+    // JIT SWAP MODE: Client-side swap before payment (when prebuild disabled, JIT swap enabled)
+    if (isPaywalled && !prebuildEnabled && jitSwapEnabled && walletBalance >= price) {
+      debugLog('event', `🔄 Using JIT SWAP mode - swapping ${price} credits client-side first`);
       const startTime = performance.now();
       
       // Select proofs that cover the amount
@@ -265,7 +353,7 @@ export default function TrackList() {
           // Make the payment request with exact-amount token
           const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
           
-          debugLog('request', `GET ${url} [JIT MODE]`, {
+          debugLog('request', `GET ${url} [JIT SWAP MODE]`, {
             trackId: track.id,
             dTag: track.dTag,
             payment: {
@@ -288,7 +376,7 @@ export default function TrackList() {
           if (response.ok) {
             const data = await response.json();
             const contentUrl = data.data?.url || data.url;
-            debugLog('response', `JIT success in ${elapsed.toFixed(0)}ms`, { 
+            debugLog('response', `JIT SWAP success in ${elapsed.toFixed(0)}ms`, { 
               url: contentUrl?.slice(0, 50),
               paid: swapResult.sendAmount,
               changeKept: swapResult.keepAmount,
@@ -299,14 +387,14 @@ export default function TrackList() {
           
           if (response.status === 402) {
             const data = await response.json();
-            debugLog('error', 'JIT payment rejected', { status: 402, data });
+            debugLog('error', 'JIT SWAP payment rejected', { status: 402, data });
             setPaymentState({ track, price: data.price_credits || price });
             return;
           }
           
-          debugLog('error', `JIT request failed: ${response.status}`);
+          debugLog('error', `JIT SWAP request failed: ${response.status}`);
         } catch (err) {
-          debugLog('error', 'JIT swap/payment error', { 
+          debugLog('error', 'JIT SWAP error', { 
             error: err instanceof Error ? err.message : 'unknown' 
           });
         }

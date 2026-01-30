@@ -172,6 +172,8 @@ function ApiConfigPanel() {
 function SettingsPanel() {
   const prebuildEnabled = useSettingsStore((s) => s.prebuildEnabled);
   const togglePrebuild = useSettingsStore((s) => s.togglePrebuild);
+  const jitSwapEnabled = useSettingsStore((s) => s.jitSwapEnabled);
+  const toggleJitSwap = useSettingsStore((s) => s.toggleJitSwap);
 
   return (
     <DebugPanel title="⚙️ Settings">
@@ -181,7 +183,7 @@ function SettingsPanel() {
           <div>
             <span className="text-xs text-white block">Smart Prebuild</span>
             <span className="text-[10px] text-gray-500">
-              {prebuildEnabled ? 'Pre-swap tokens on load' : 'Just-in-time swap'}
+              {prebuildEnabled ? 'Pre-swap tokens on load' : 'Direct payment mode'}
             </span>
           </div>
           <button
@@ -198,17 +200,46 @@ function SettingsPanel() {
           </button>
         </div>
 
+        {/* JIT Swap Toggle (only visible when prebuild is off) */}
+        {!prebuildEnabled && (
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-xs text-white block">Client-side JIT Swap</span>
+              <span className="text-[10px] text-gray-500">
+                {jitSwapEnabled ? 'Swap before sending' : 'Server returns change'}
+              </span>
+            </div>
+            <button
+              onClick={toggleJitSwap}
+              className={`relative w-10 h-5 rounded-full transition-colors ${
+                jitSwapEnabled ? 'bg-primary' : 'bg-surface-light'
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  jitSwapEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         {/* Info */}
         <div className="text-[10px] text-gray-500 p-2 bg-surface rounded">
           {prebuildEnabled ? (
             <>
-              <span className="text-green-400">ON:</span> Tokens pre-built for track prices on load.
+              <span className="text-green-400">PREBUILD:</span> Tokens pre-built for track prices on load.
               Single request per play (~120ms).
+            </>
+          ) : jitSwapEnabled ? (
+            <>
+              <span className="text-yellow-400">JIT SWAP:</span> Client swaps proofs to exact amount before sending.
+              Extra mint call (~300-500ms).
             </>
           ) : (
             <>
-              <span className="text-yellow-400">OFF:</span> Tokens swapped just-in-time before each play.
-              Extra swap request (~300-500ms).
+              <span className="text-cyan-400">DIRECT:</span> Send proofs, server returns change.
+              Single request, simplest flow.
             </>
           )}
         </div>
