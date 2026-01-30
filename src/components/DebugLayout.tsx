@@ -4,6 +4,7 @@ import { DebugLog } from './DebugLog';
 import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';
 import { usePlayerStore } from '../stores/player';
+import { useTokenCacheStore } from '../stores/tokenCache';
 import { PurchasePanel } from './PurchasePanel';
 import AudioPlayer from './AudioPlayer';
 
@@ -47,6 +48,95 @@ function WalletPanel() {
             🗑 Clear Wallet
           </button>
         )}
+      </div>
+    </DebugPanel>
+  );
+}
+
+// Token Cache panel - shows single-request mode status
+function TokenCachePanel() {
+  const tokens = useTokenCacheStore(state => state.tokens);
+  const isWalletReady = useTokenCacheStore(state => state.isWalletReady);
+  const isBuilding = useTokenCacheStore(state => state.isBuilding);
+  const error = useTokenCacheStore(state => state.error);
+  const prebuildTokens = useTokenCacheStore(state => state.prebuildTokens);
+  const clear = useTokenCacheStore(state => state.clear);
+  const walletBalance = useWalletStore(state => state.getBalance());
+
+  const handleBuild = async () => {
+    debugLog('tokenCache', 'Manual token build triggered');
+    const built = await prebuildTokens(5);
+    debugLog('tokenCache', `Built ${built} tokens`);
+  };
+
+  return (
+    <DebugPanel title="⚡ Token Cache (Single-Request)">
+      <div className="space-y-3">
+        {/* Status indicator */}
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            tokens.length > 0 ? 'bg-green-400' : 
+            isBuilding ? 'bg-yellow-400 animate-pulse' : 
+            'bg-gray-500'
+          }`} />
+          <span className="text-xs text-gray-400">
+            {tokens.length > 0 ? 'Ready for single-request' :
+             isBuilding ? 'Building tokens...' :
+             'No tokens cached'}
+          </span>
+        </div>
+
+        {/* Token count */}
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-400">Cached Tokens</span>
+          <span className="text-sm font-mono text-primary">{tokens.length}</span>
+        </div>
+
+        {/* Wallet status */}
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-400">Wallet</span>
+          <span className={`text-xs ${isWalletReady ? 'text-green-400' : 'text-gray-500'}`}>
+            {isWalletReady ? '✓ Ready' : '○ Not initialized'}
+          </span>
+        </div>
+
+        {/* Available for building */}
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-400">Available to build</span>
+          <span className="text-xs text-gray-300">{walletBalance} credits</span>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="text-xs text-red-400 p-2 bg-red-400/10 rounded">
+            {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleBuild}
+            disabled={isBuilding || walletBalance === 0}
+            className="flex-1 py-1.5 text-xs bg-primary/20 text-primary rounded hover:bg-primary/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isBuilding ? 'Building...' : 'Build Tokens'}
+          </button>
+          {tokens.length > 0 && (
+            <button
+              onClick={clear}
+              className="px-2 py-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Info box */}
+        <div className="text-[10px] text-gray-500 p-2 bg-surface rounded">
+          ⚡ Single-request mode: Pre-built tokens skip 402 discovery + mint swap.
+          Target latency: ~120ms vs ~500ms cold.
+        </div>
       </div>
     </DebugPanel>
   );
@@ -236,6 +326,7 @@ export default function DebugLayout({ trackList }: DebugLayoutProps) {
         <aside className="w-80 flex-none border-l border-surface-light overflow-auto bg-surface/30">
           <div className="p-3 space-y-3">
             <h2 className="text-sm font-medium text-white">Debug Panels</h2>
+            <TokenCachePanel />
             <PurchasePanel />
             <WalletPanel />
             <ApiConfigPanel />

@@ -4,6 +4,7 @@ import { useContentAccess } from '../hooks/useContentAccess';
 import { debugLog } from '../stores/debug';
 import { usePlayerStore } from '../stores/player';
 import { useWalletStore } from '../stores/wallet';
+import { useTokenCacheStore } from '../stores/tokenCache';
 import PaymentModal from './PaymentModal';
 import type { Track } from '../types/nostr';
 
@@ -107,24 +108,53 @@ function LoadingSkeleton() {
 
 export default function TrackList() {
   const { tracks, loading, error } = useTracks({ limit: 50 });
-  const { checkAccess, purchaseAccess } = useContentAccess();
+  const { checkAccess, purchaseAccess, singleRequestAccess, getTokenCacheStatus } = useContentAccess();
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const play = usePlayerStore((s) => s.play);
   const selectProofsForAmount = useWalletStore((s) => s.selectProofsForAmount);
+  const tokenCount = useTokenCacheStore((s) => s.tokens.length);
   
   const [paymentState, setPaymentState] = useState<PaymentState | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handlePlay = async (track: Track) => {
+    const isPaywalled = track.metadata.access_mode === 'paywall';
+    const cacheStatus = getTokenCacheStatus();
+    
     debugLog('event', `Track clicked: ${track.metadata.title}`, {
       trackId: track.id,
       dTag: track.dTag,
-      isPaywalled: track.metadata.access_mode === 'paywall',
+      isPaywalled,
       price: track.metadata.price_credits,
+      tokenCacheCount: cacheStatus.tokenCount,
+      mode: isPaywalled && cacheStatus.tokenCount > 0 ? 'SINGLE-REQUEST' : 'STANDARD',
     });
 
-    // Check access first
+    // For paywalled tracks with cached tokens, use single-request mode (fastest)
+    if (isPaywalled && cacheStatus.tokenCount > 0) {
+      debugLog('event', '⚡ Using SINGLE-REQUEST mode');
+      const result = await singleRequestAccess(track);
+      
+      if (result.success) {
+        play(track, result.url);
+        return;
+      }
+      
+      if (result.requiresPayment) {
+        // Token was rejected or insufficient, show payment modal
+        setPaymentState({
+          track,
+          price: result.priceCredits,
+        });
+        return;
+      }
+      
+      debugLog('error', 'Single-request access failed', { error: 'error' in result ? result.error : 'unknown' });
+      return;
+    }
+
+    // Standard flow: check access first
     const result = await checkAccess(track);
 
     if (result.success) {
@@ -143,7 +173,7 @@ export default function TrackList() {
     }
 
     // Error
-    debugLog('error', 'Access check failed', { error: result.error });
+    debugLog('error', 'Access check failed', { error: 'error' in result ? result.error : 'unknown' });
   };
 
   const handlePaymentConfirm = async () => {
