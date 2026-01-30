@@ -149,9 +149,15 @@ export function useContentAccess() {
       tokenLength: token.length,
     });
     
+    const totalAmount = proofs.reduce((s, p) => s + p.amount, 0);
     debugLog('request', `GET ${url} (with X-Ecash-Token)`, { 
       trackId: track.id, 
       dTag: track.dTag,
+      payment: {
+        tokenAmount: totalAmount,
+        trackPrice: track.metadata.price_credits,
+        unit: 'usd',
+      },
       headers: {
         'X-Ecash-Token': token.slice(0, 30) + '...',
       },
@@ -258,7 +264,11 @@ export function useContentAccess() {
     debugLog('request', `GET ${url} [SINGLE-REQUEST MODE]`, { 
       trackId: track.id, 
       dTag: track.dTag,
-      tokenAmount: cachedToken.amount,
+      payment: {
+        tokenAmount: cachedToken.amount,
+        trackPrice: track.metadata.price_credits,
+        unit: 'usd',
+      },
       headers: {
         'X-Ecash-Token': cachedToken.token.slice(0, 30) + '...',
       },

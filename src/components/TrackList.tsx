@@ -186,6 +186,19 @@ export default function TrackList() {
         const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
         const startTime = performance.now();
         
+        debugLog('request', `GET ${url} [PREBUILD MODE]`, {
+          trackId: track.id,
+          dTag: track.dTag,
+          payment: {
+            tokenAmount: smartToken.amount,
+            trackPrice: price,
+            unit: 'usd',
+          },
+          headers: {
+            'X-Ecash-Token': smartToken.token.slice(0, 30) + '...',
+          },
+        });
+        
         try {
           const response = await fetch(url, {
             headers: { 'X-Ecash-Token': smartToken.token },
