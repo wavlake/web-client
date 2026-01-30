@@ -74,6 +74,23 @@ export function DebugLog() {
   const clearLogs = useDebugStore((state) => state.clearLogs);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const copyLogs = async () => {
+    const logText = logs.map(entry => {
+      const time = entry.timestamp.toISOString();
+      const data = entry.data ? `\n${JSON.stringify(entry.data, null, 2)}` : '';
+      return `[${time}] [${entry.type.toUpperCase()}] ${entry.label}${data}`;
+    }).join('\n\n');
+    
+    try {
+      await navigator.clipboard.writeText(logText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   useEffect(() => {
     if (autoScroll && scrollRef.current) {
@@ -96,6 +113,12 @@ export function DebugLog() {
         <span className="text-sm font-medium text-white">Debug Log</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">{logs.length} entries</span>
+          <button
+            onClick={copyLogs}
+            className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-surface-light transition-colors"
+          >
+            {copied ? '✓ Copied' : '📋 Copy'}
+          </button>
           <button
             onClick={clearLogs}
             className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-surface-light transition-colors"
