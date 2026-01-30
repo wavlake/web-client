@@ -88,10 +88,13 @@ export function useContentAccess() {
       const data = await response.json();
       debugLog('response', `GET ${url} - 200 OK`, data);
       
+      // Handle both { url: "..." } and { data: { url: "..." } } response formats
+      const contentUrl = data.data?.url || data.url;
+      
       const result: ContentAccessSuccess = {
         success: true,
-        url: data.url,
-        streamType: data.stream_type || data.streamType,
+        url: contentUrl,
+        streamType: data.data?.stream_type || data.stream_type || data.streamType,
       };
       setLastResult(result);
       setIsLoading(false);
@@ -196,10 +199,13 @@ export function useContentAccess() {
       // Payment successful - remove proofs from wallet
       useWalletStore.getState().removeProofs(proofs.map(p => p.secret));
       
+      // Handle both { url: "..." } and { data: { url: "..." } } response formats
+      const contentUrl = data.data?.url || data.url;
+      
       const result: ContentAccessSuccess = {
         success: true,
-        url: data.url,
-        streamType: data.stream_type || data.streamType,
+        url: contentUrl,
+        streamType: data.data?.stream_type || data.stream_type || data.streamType,
       };
       setLastResult(result);
       setIsLoading(false);
@@ -302,10 +308,13 @@ export function useContentAccess() {
         latencyMs: elapsed.toFixed(0),
       });
       
+      // Handle both { url: "..." } and { data: { url: "..." } } response formats
+      const contentUrl = data.data?.url || data.url;
+      
       const result: ContentAccessSuccess = {
         success: true,
-        url: data.url,
-        streamType: data.stream_type || data.streamType,
+        url: contentUrl,
+        streamType: data.data?.stream_type || data.stream_type || data.streamType,
       };
       setLastResult(result);
       setIsLoading(false);
