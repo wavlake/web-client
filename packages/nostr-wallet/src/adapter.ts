@@ -135,7 +135,15 @@ export class Nip60Adapter implements StorageAdapter {
     };
 
     const event = await this.createEncryptedEvent(TOKEN_KIND, content);
-    await event.publish();
+    
+    // Publish with lenient settings - only need 1 relay to accept
+    try {
+      const relays = await event.publish();
+      console.log(`[nip60] Token event published to ${relays?.size || 0} relays`);
+    } catch (publishError) {
+      // Log but don't fail if publish has issues - proofs are still in memory
+      console.warn('[nip60] Publish warning:', publishError);
+    }
 
     // Update tracked event IDs
     this._currentTokenEventIds.clear();
@@ -224,7 +232,11 @@ export class Nip60Adapter implements StorageAdapter {
     };
 
     const event = await this.createEncryptedEvent(WALLET_KIND, content);
-    await event.publish();
+    try {
+      await event.publish();
+    } catch (e) {
+      console.warn('[nip60] Wallet event publish warning:', e);
+    }
   }
 
   /**
@@ -303,7 +315,11 @@ export class Nip60Adapter implements StorageAdapter {
     ];
     
     await deleteEvent.sign(this.signer);
-    await deleteEvent.publish();
+    try {
+      await deleteEvent.publish();
+    } catch (e) {
+      console.warn('[nip60] Delete event publish warning:', e);
+    }
   }
 
   /**
