@@ -3,9 +3,11 @@ import { Wallet, LocalStorageAdapter } from '@wavlake/wallet';
 import { PaywallClient } from '@wavlake/paywall-client';
 import { WalletProvider, PaywallProvider } from '@wavlake/paywall-react';
 import { NDKProvider } from './lib/ndk';
+import { SettingsProvider } from './hooks/useSettings';
 import { WalletPanel } from './components/WalletPanel';
 import { TrackList } from './components/TrackList';
 import { Player } from './components/Player';
+import { Settings } from './components/Settings';
 import { PlayerProvider } from './hooks/usePlayer';
 import './styles.css';
 
@@ -28,18 +30,21 @@ export function App() {
     <NDKProvider>
       <WalletProvider wallet={wallet}>
         <PaywallProvider client={client}>
-          <PlayerProvider>
-            <div className="app">
-              <header>
-                <h1>⚡ Wavlake Paywall Demo</h1>
-                <p className="subtitle">SDK-powered music streaming with ecash</p>
-              </header>
+          <SettingsProvider>
+            <PlayerProvider>
+              <div className="app">
+                <header>
+                  <h1>⚡ Wavlake Paywall Demo</h1>
+                  <p className="subtitle">SDK-powered music streaming with ecash</p>
+                </header>
 
-              <WalletPanel />
-              <TrackList />
-              <Player />
-            </div>
-          </PlayerProvider>
+                <WalletPanel />
+                <Settings />
+                <TrackList />
+                <Player />
+              </div>
+            </PlayerProvider>
+          </SettingsProvider>
         </PaywallProvider>
       </WalletProvider>
     </NDKProvider>

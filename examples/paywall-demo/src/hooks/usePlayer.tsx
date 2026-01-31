@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
 import { useWallet, usePaywall } from '@wavlake/paywall-react';
+import { useSettings } from './useSettings';
 
 interface Track {
   dtag: string;
@@ -25,6 +26,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const wallet = useWallet();
   const paywall = usePaywall();
+  const { endpoint } = useSettings();
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -53,20 +55,38 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       // Create token
-      console.log(`Creating token for ${track.price} credits...`);
+      console.log(`[${endpoint}] Creating token for ${track.price} credits...`);
       const token = await wallet.createToken(track.price);
       console.log('Token created:', token.substring(0, 50) + '...');
 
-      // Request content
-      console.log(`Requesting content for ${track.dtag}...`);
-      const result = await paywall.requestContent(track.dtag, token);
-      console.log('Content result:', result);
+      let url: string;
+      let change: string | undefined;
+
+      if (endpoint === 'content') {
+        // Use /api/v1/content - JSON with signed URL + grant
+        console.log(`[content] Requesting content for ${track.dtag}...`);
+        const result = await paywall.requestContent(track.dtag, token);
+        console.log('Content result:', result);
+        url = result.url;
+        change = result.change;
+      } else {
+        // Use /api/v1/audio - Direct binary stream
+        console.log(`[audio] Requesting audio for ${track.dtag}...`);
+        const result = await paywall.requestAudio(track.dtag, token);
+        console.log('Audio result: blob received, size:', result.audio.size);
+        
+        // Create blob URL for audio element
+        cleanupBlobUrl();
+        url = URL.createObjectURL(result.audio);
+        blobUrlRef.current = url;
+        change = result.change;
+      }
 
       // Handle change if any
-      if (result.change) {
+      if (change) {
         console.log('Receiving change...');
         try {
-          const changeAmount = await wallet.receiveToken(result.change);
+          const changeAmount = await wallet.receiveToken(change);
           console.log(`Received ${changeAmount} credits as change`);
         } catch (err) {
           console.warn('Failed to receive change:', err);
@@ -74,9 +94,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
 
       // Set up playback
-      cleanupBlobUrl();
       setCurrentTrack(track);
-      setAudioUrl(result.url);
+      setAudioUrl(url);
       setIsPlaying(true);
 
     } catch (err) {
@@ -86,7 +105,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [wallet, paywall, cleanupBlobUrl]);
+  }, [wallet, paywall, endpoint, cleanupBlobUrl]);
 
   const stop = useCallback(() => {
     cleanupBlobUrl();
