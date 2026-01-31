@@ -31,6 +31,10 @@ export interface PaywallContextValue {
   requestAudio: (dtag: string, token: string) => Promise<AudioResult>;
   /** Request content with grant */
   requestContent: (dtag: string, token: string) => Promise<ContentResult>;
+  /** Replay existing grant */
+  replayGrant: (dtag: string, grantId: string) => Promise<ContentResult>;
+  /** Get content price */
+  getContentPrice: (dtag: string) => Promise<number>;
   /** Generate URL with embedded token */
   getAudioUrl: (dtag: string, token: string, paymentId?: string) => string;
   /** Fetch change from overpayment */
@@ -150,6 +154,29 @@ export function PaywallProvider({
     }
   }, []);
 
+  const replayGrant = useCallback(async (dtag: string, grantId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await clientRef.current.replayGrant(dtag, grantId);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const getContentPrice = useCallback(async (dtag: string) => {
+    try {
+      return await clientRef.current.getContentPrice(dtag);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      throw error;
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -157,6 +184,8 @@ export function PaywallProvider({
   const value: PaywallContextValue = {
     requestAudio,
     requestContent,
+    replayGrant,
+    getContentPrice,
     getAudioUrl,
     fetchChange,
     isLoading,

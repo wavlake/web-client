@@ -957,3 +957,147 @@ header h1 {
   font-weight: bold;
   color: #4ade80;
 }
+
+/* QR Code for invoices */
+.invoice-qr {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  padding: 16px;
+  background: #1a1a1a;
+  border-radius: 12px;
+}
+
+/* Export section */
+.export-section {
+  padding: 12px;
+}
+
+.export-hint {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.export-btn {
+  width: 100%;
+  background: #6366f1;
+}
+
+.export-btn:hover {
+  background: #4f46e5;
+}
+
+/* Connection status indicator */
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+.status-dot.connected {
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade8066;
+}
+
+.status-dot.disconnected {
+  background: #f87171;
+  box-shadow: 0 0 8px #f8717166;
+}
+
+.status-badge {
+  font-size: 0.9rem;
+}
+
+/* Health check section */
+.health-check-section {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+
+.health-check-btn {
+  width: 100%;
+  padding: 10px;
+  background: #374151;
+  border: 1px solid #4b5563;
+}
+
+.health-check-btn:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.health-result {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.health-result.healthy {
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid #4ade8044;
+}
+
+.health-result.unhealthy {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid #fbbf2444;
+}
+
+.health-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+}
+
+.score-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #888;
+}
+
+.health-status {
+  font-size: 14px;
+  margin: 8px 0;
+}
+
+.health-result.healthy .health-status {
+  color: #4ade80;
+}
+
+.health-result.unhealthy .health-status {
+  color: #fbbf24;
+}
+
+.health-issue {
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 8px;
+}
+
+.health-time {
+  font-size: 10px;
+  color: #666;
+  margin-top: 8px;
+}

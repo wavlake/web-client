@@ -105,11 +105,28 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ConnectionStatus() {
+  const { connected } = useNDK();
+  const { isLoggedIn } = useAuth();
+  const { walletStorage } = useSettings();
+  
+  return (
+    <div className="connection-status">
+      <span className={`status-dot ${connected ? 'connected' : 'disconnected'}`} title={connected ? 'Nostr connected' : 'Nostr disconnected'} />
+      {isLoggedIn && <span className="status-badge">🔑</span>}
+      {walletStorage === 'nostr' && <span className="status-badge" title="NIP-60 enabled">☁️</span>}
+    </div>
+  );
+}
+
 function AppContent() {
   return (
     <div className="app">
       <header>
-        <h1>⚡ Wavlake Paywall Demo</h1>
+        <div className="header-row">
+          <h1>⚡ Wavlake Paywall Demo</h1>
+          <ConnectionStatus />
+        </div>
         <p className="subtitle">SDK-powered music streaming with ecash</p>
       </header>
 

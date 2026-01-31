@@ -1,89 +1,43 @@
 /**
- * Token Inspection Utilities
+ * Token utilities
  * 
- * Utilities for inspecting, validating, and extracting information from Cashu tokens
- * without swapping them with the mint.
+ * Helpers for parsing and validating Cashu tokens.
  */
 
 import { getDecodedToken, type Token } from '@cashu/cashu-ts';
-import type { Proof } from './types.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Result of token inspection
+ * Token info extracted from a cashu token
  */
 export interface TokenInfo {
-  /** Token format version (3 for cashuA, 4 for cashuB) */
+  /** Token version (3 or 4) */
   version: 3 | 4;
-  /** Mint URL the token is for */
+  /** Mint URL */
   mint: string;
-  /** Total amount in the token (sum of all proofs) */
+  /** Unit (e.g., 'sat', 'usd') */
+  unit?: string;
+  /** Total amount in the token */
   amount: number;
   /** Number of proofs in the token */
   proofCount: number;
-  /** Individual proof amounts */
-  proofAmounts: number[];
-  /** Unit (e.g., 'sat', 'usd') if specified */
-  unit?: string;
-  /** Memo if included in token */
+  /** Memo if present */
   memo?: string;
-  /** The decoded proofs (for advanced use) */
-  proofs: Proof[];
-  /** Original encoded token string */
-  encoded: string;
-}
-
-/**
- * Options for token validation
- */
-export interface ValidateTokenOptions {
-  /** Expected mint URL (validates token is for this mint) */
-  expectedMint?: string;
-  /** Minimum expected amount */
-  minAmount?: number;
-  /** Maximum expected amount */
-  maxAmount?: number;
-  /** Exact expected amount */
-  exactAmount?: number;
-  /** Expected unit (e.g., 'usd') */
-  expectedUnit?: string;
 }
 
 /**
  * Token validation result
  */
-export interface TokenValidationResult {
+export interface TokenValidation {
   /** Whether the token is valid */
   valid: boolean;
-  /** Token info if successfully parsed */
+  /** Error message if invalid */
+  error?: string;
+  /** Token info if valid */
   info?: TokenInfo;
-  /** Validation errors (if any) */
-  errors: string[];
-  /** Validation warnings (non-fatal issues) */
-  warnings: string[];
-}
-
-/**
- * Error thrown when token parsing fails
- */
-export class TokenParseError extends Error {
-  readonly token: string;
-  readonly cause?: Error;
-
-  constructor(message: string, token: string, cause?: Error) {
-    super(message);
-    this.name = 'TokenParseError';
-    this.token = token.substring(0, 20) + '...'; // Truncate for safety
-    this.cause = cause;
-
-    if ('captureStackTrace' in Error) {
-      (Error as { captureStackTrace: (target: object, constructor: Function) => void })
-        .captureStackTrace(this, TokenParseError);
-    }
-  }
 }
 
 // ============================================================================
@@ -91,281 +45,177 @@ export class TokenParseError extends Error {
 // ============================================================================
 
 /**
- * Inspect a Cashu token without swapping it.
+ * Parse and validate a Cashu token string
  * 
- * Decodes the token and extracts useful information like mint URL,
- * total amount, proof count, etc. Does NOT contact the mint.
- * 
- * @param token - Encoded Cashu token (cashuA or cashuB format)
- * @returns Token information
- * @throws TokenParseError if token is malformed
+ * @param tokenStr - Cashu token string (cashuA or cashuB format)
+ * @returns Validation result with token info if valid
  * 
  * @example
  * ```ts
- * import { inspectToken } from '@wavlake/wallet';
- * 
- * const info = inspectToken('cashuB...');
- * console.log(`Token for ${info.mint}`);
- * console.log(`Amount: ${info.amount} (${info.proofCount} proofs)`);
- * ```
- */
-export function inspectToken(token: string): TokenInfo {
-  if (!token || typeof token !== 'string') {
-    throw new TokenParseError('Token must be a non-empty string', token || '');
-  }
-
-  // Check basic format
-  if (!token.startsWith('cashuA') && !token.startsWith('cashuB')) {
-    throw new TokenParseError(
-      'Invalid token format: must start with cashuA or cashuB',
-      token
-    );
-  }
-
-  let decoded: Token;
-  try {
-    decoded = getDecodedToken(token);
-  } catch (error) {
-    throw new TokenParseError(
-      `Failed to decode token: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      token,
-      error instanceof Error ? error : undefined
-    );
-  }
-
-  // Extract proofs (handle both v3 and v4 formats)
-  const proofs: Proof[] = decoded.proofs || [];
-  
-  if (proofs.length === 0) {
-    throw new TokenParseError('Token contains no proofs', token);
-  }
-
-  // Calculate totals
-  const proofAmounts = proofs.map(p => p.amount);
-  const amount = proofAmounts.reduce((sum, a) => sum + a, 0);
-
-  // Detect version from prefix
-  const version = token.startsWith('cashuB') ? 4 : 3;
-
-  return {
-    version,
-    mint: decoded.mint || '',
-    amount,
-    proofCount: proofs.length,
-    proofAmounts,
-    unit: decoded.unit,
-    memo: decoded.memo,
-    proofs,
-    encoded: token,
-  };
-}
-
-/**
- * Validate a Cashu token against expected parameters.
- * 
- * Useful for checking tokens before spending them to catch issues early
- * with helpful error messages.
- * 
- * @param token - Encoded Cashu token
- * @param options - Validation options
- * @returns Validation result with errors/warnings
- * 
- * @example
- * ```ts
- * import { validateToken } from '@wavlake/wallet';
- * 
- * const result = validateToken(token, {
- *   expectedMint: 'https://mint.wavlake.com',
- *   minAmount: 5,
- *   expectedUnit: 'usd',
- * });
- * 
- * if (!result.valid) {
- *   console.error('Token validation failed:', result.errors);
+ * const result = validateToken('cashuBpXh...');
+ * if (result.valid) {
+ *   console.log('Amount:', result.info.amount);
+ *   console.log('Mint:', result.info.mint);
+ * } else {
+ *   console.error('Invalid:', result.error);
  * }
  * ```
  */
-export function validateToken(
-  token: string,
-  options: ValidateTokenOptions = {}
-): TokenValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  let info: TokenInfo | undefined;
+export function validateToken(tokenStr: string): TokenValidation {
+  // Basic format check
+  if (!tokenStr || typeof tokenStr !== 'string') {
+    return { valid: false, error: 'Token must be a non-empty string' };
+  }
 
-  // Try to parse the token
+  const trimmed = tokenStr.trim();
+  
+  // Check prefix
+  if (!trimmed.startsWith('cashuA') && !trimmed.startsWith('cashuB')) {
+    return { valid: false, error: 'Token must start with cashuA or cashuB' };
+  }
+
   try {
-    info = inspectToken(token);
-  } catch (error) {
-    return {
-      valid: false,
-      errors: [error instanceof TokenParseError ? error.message : 'Failed to parse token'],
-      warnings: [],
+    const token = getDecodedToken(trimmed);
+    const info = extractTokenInfo(token, trimmed);
+    return { valid: true, info };
+  } catch (err) {
+    return { 
+      valid: false, 
+      error: err instanceof Error ? err.message : 'Failed to decode token',
     };
   }
-
-  // Validate mint
-  if (options.expectedMint) {
-    const normalizedExpected = options.expectedMint.replace(/\/+$/, '');
-    const normalizedActual = info.mint.replace(/\/+$/, '');
-    
-    if (normalizedActual !== normalizedExpected) {
-      errors.push(
-        `Token is for wrong mint: expected "${normalizedExpected}", got "${normalizedActual}"`
-      );
-    }
-  }
-
-  // Validate unit
-  if (options.expectedUnit && info.unit && info.unit !== options.expectedUnit) {
-    errors.push(
-      `Token has wrong unit: expected "${options.expectedUnit}", got "${info.unit}"`
-    );
-  }
-
-  // Warn if unit is missing when expected
-  if (options.expectedUnit && !info.unit) {
-    warnings.push(`Token does not specify unit (expected "${options.expectedUnit}")`);
-  }
-
-  // Validate amount
-  if (options.exactAmount !== undefined && info.amount !== options.exactAmount) {
-    errors.push(
-      `Token amount mismatch: expected ${options.exactAmount}, got ${info.amount}`
-    );
-  }
-
-  if (options.minAmount !== undefined && info.amount < options.minAmount) {
-    errors.push(
-      `Token amount too low: minimum ${options.minAmount}, got ${info.amount}`
-    );
-  }
-
-  if (options.maxAmount !== undefined && info.amount > options.maxAmount) {
-    errors.push(
-      `Token amount too high: maximum ${options.maxAmount}, got ${info.amount}`
-    );
-  }
-
-  // Additional warnings
-  if (!info.mint) {
-    warnings.push('Token does not specify a mint URL');
-  }
-
-  return {
-    valid: errors.length === 0,
-    info,
-    errors,
-    warnings,
-  };
 }
 
 /**
- * Get the total amount in a token.
+ * Parse a token without validation (for quick inspection)
+ * Throws if token is invalid.
  * 
- * Convenience function for quickly checking token value.
- * 
- * @param token - Encoded Cashu token
- * @returns Total amount
- * @throws TokenParseError if token is malformed
+ * @param tokenStr - Cashu token string
+ * @returns Token information
+ * @throws Error if token cannot be parsed
  * 
  * @example
  * ```ts
- * const amount = getTokenAmount('cashuB...');
- * if (amount < price) {
- *   console.error('Token amount insufficient');
+ * try {
+ *   const info = parseToken('cashuBpXh...');
+ *   console.log('Mint:', info.mint);
+ * } catch (err) {
+ *   console.error('Invalid token');
  * }
  * ```
  */
-export function getTokenAmount(token: string): number {
-  return inspectToken(token).amount;
+export function parseToken(tokenStr: string): TokenInfo {
+  const result = validateToken(tokenStr);
+  if (!result.valid) {
+    throw new Error(result.error || 'Invalid token');
+  }
+  return result.info!;
 }
 
 /**
- * Get the mint URL from a token.
+ * Check if a string looks like a Cashu token
+ * (Quick check without full validation)
  * 
- * Convenience function for quickly checking which mint a token is for.
- * 
- * @param token - Encoded Cashu token
- * @returns Mint URL
- * @throws TokenParseError if token is malformed
+ * @param str - String to check
+ * @returns true if the string starts with cashuA or cashuB
  * 
  * @example
  * ```ts
- * const mint = getTokenMint('cashuB...');
- * if (mint !== expectedMint) {
- *   console.error('Token is for wrong mint');
- * }
- * ```
- */
-export function getTokenMint(token: string): string {
-  return inspectToken(token).mint;
-}
-
-/**
- * Get the proofs from a token without swapping.
- * 
- * Returns the raw proofs for advanced inspection.
- * Note: These proofs should NOT be added to a wallet directly -
- * use wallet.receiveToken() to properly swap them.
- * 
- * @param token - Encoded Cashu token
- * @returns Array of proofs
- * @throws TokenParseError if token is malformed
- */
-export function getTokenProofs(token: string): Proof[] {
-  return inspectToken(token).proofs;
-}
-
-/**
- * Check if a string looks like a valid Cashu token format.
- * 
- * Quick check without full parsing - useful for input validation.
- * 
- * @param maybeToken - String to check
- * @returns true if string looks like a token
- * 
- * @example
- * ```ts
- * if (isTokenFormat(userInput)) {
- *   // Proceed with full validation
+ * if (looksLikeToken(userInput)) {
  *   const result = validateToken(userInput);
+ *   // ...
  * }
  * ```
  */
-export function isTokenFormat(maybeToken: unknown): maybeToken is string {
-  if (typeof maybeToken !== 'string') {
-    return false;
+export function looksLikeToken(str: string): boolean {
+  if (!str || typeof str !== 'string') return false;
+  const trimmed = str.trim();
+  return trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB');
+}
+
+/**
+ * Get the mint URL from a token string
+ * 
+ * @param tokenStr - Cashu token string
+ * @returns Mint URL or null if token is invalid
+ */
+export function getTokenMint(tokenStr: string): string | null {
+  try {
+    const info = parseToken(tokenStr);
+    return info.mint;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the amount from a token string
+ * 
+ * @param tokenStr - Cashu token string
+ * @returns Total amount in the token or null if invalid
+ */
+export function getTokenAmount(tokenStr: string): number | null {
+  try {
+    const info = parseToken(tokenStr);
+    return info.amount;
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Extract token info from decoded token
+ * Handles multiple token formats (V3, V4, raw V4)
+ */
+function extractTokenInfo(token: Token, original: string): TokenInfo {
+  const version: 3 | 4 = original.startsWith('cashuB') ? 4 : 3;
+  const tokenAny = token as any;
+  
+  // Modern format (both V3 decoded and V4) - has direct mint/proofs
+  if ('mint' in token && 'proofs' in token) {
+    const mint = tokenAny.mint;
+    const unit = tokenAny.unit;
+    const proofs = tokenAny.proofs || [];
+    const amount = proofs.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    
+    return { version, mint, unit, amount, proofCount: proofs.length };
   }
   
-  // Must start with cashuA or cashuB and have reasonable length
-  return (
-    (maybeToken.startsWith('cashuA') || maybeToken.startsWith('cashuB')) &&
-    maybeToken.length > 20
-  );
-}
-
-/**
- * Summarize a token for display/logging (truncated, safe).
- * 
- * @param token - Encoded Cashu token
- * @returns Human-readable summary
- * 
- * @example
- * ```ts
- * console.log(summarizeToken('cashuB...'));
- * // "cashuB token: 5 usd (3 proofs) from mint.wavlake.com"
- * ```
- */
-export function summarizeToken(token: string): string {
-  try {
-    const info = inspectToken(token);
-    const version = info.version === 4 ? 'cashuB' : 'cashuA';
-    const unit = info.unit || 'credits';
-    const mintDomain = info.mint ? new URL(info.mint).hostname : 'unknown mint';
+  // V4 raw format (with 't' array and 'm' mint)
+  if ('t' in token) {
+    const mint = tokenAny.m;
+    const unit = tokenAny.u;
+    const memo = tokenAny.d;
     
-    return `${version} token: ${info.amount} ${unit} (${info.proofCount} proof${info.proofCount !== 1 ? 's' : ''}) from ${mintDomain}`;
-  } catch (error) {
-    return `Invalid token: ${error instanceof Error ? error.message : 'parse error'}`;
+    // Sum up proofs from all token entries
+    let amount = 0;
+    let proofCount = 0;
+    for (const entry of tokenAny.t || []) {
+      for (const proof of entry.p || []) {
+        amount += proof.a || 0;
+        proofCount++;
+      }
+    }
+
+    return { version: 4, mint, unit, amount, proofCount, memo };
   }
+  
+  // V3 legacy format (with 'token' array)
+  const firstEntry = tokenAny.token?.[0];
+  const mint = firstEntry?.mint || '';
+  const proofs = firstEntry?.proofs || [];
+  const amount = proofs.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const memo = tokenAny.memo;
+
+  return { 
+    version: 3, 
+    mint, 
+    amount, 
+    proofCount: proofs.length,
+    memo,
+  };
 }

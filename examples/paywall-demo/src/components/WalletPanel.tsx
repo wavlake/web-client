@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@wavlake/paywall-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { quickHealthCheck } from '@wavlake/wallet';
 
 type MintState = 
   | { status: 'idle' }
@@ -12,17 +14,26 @@ type MintState =
 export function WalletPanel() {
   const { 
     balance, 
+    proofs,
     isReady, 
     isLoading, 
     error, 
     receiveToken, 
     createMintQuote,
     mintTokens,
+    createToken,
     clear 
   } = useWallet();
   
   // Collapsed state
   const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Health check state
+  const [healthCheck, setHealthCheck] = useState<{
+    checking: boolean;
+    result?: { score: number; healthy: boolean; issue?: string };
+    lastChecked?: Date;
+  }>({ checking: false });
   
   // Token paste input
   const [tokenInput, setTokenInput] = useState('');
@@ -51,6 +62,26 @@ export function WalletPanel() {
       setTokenInput('');
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to receive token' });
+    }
+  };
+
+  const handleHealthCheck = async () => {
+    setHealthCheck({ checking: true });
+    try {
+      // Get mintUrl from the wallet (it's the standard Wavlake mint)
+      const mintUrl = 'https://mint.wavlake.com';
+      const result = await quickHealthCheck(mintUrl, proofs);
+      setHealthCheck({
+        checking: false,
+        result,
+        lastChecked: new Date(),
+      });
+    } catch (err) {
+      setHealthCheck({
+        checking: false,
+        result: { score: 0, healthy: false, issue: err instanceof Error ? err.message : 'Check failed' },
+        lastChecked: new Date(),
+      });
     }
   };
 
@@ -150,6 +181,37 @@ export function WalletPanel() {
         <span className="balance-label">credits</span>
       </div>
 
+      {/* Health Check */}
+      <div className="health-check-section">
+        <button 
+          onClick={handleHealthCheck} 
+          disabled={healthCheck.checking || balance === 0}
+          className="health-check-btn"
+        >
+          {healthCheck.checking ? '⏳ Checking...' : '🏥 Check Wallet Health'}
+        </button>
+        
+        {healthCheck.result && (
+          <div className={`health-result ${healthCheck.result.healthy ? 'healthy' : 'unhealthy'}`}>
+            <div className="health-score">
+              <span className="score-value">{healthCheck.result.score}</span>
+              <span className="score-label">/100</span>
+            </div>
+            <div className="health-status">
+              {healthCheck.result.healthy ? '✅ Healthy' : '⚠️ Issues Found'}
+            </div>
+            {healthCheck.result.issue && (
+              <div className="health-issue">{healthCheck.result.issue}</div>
+            )}
+            {healthCheck.lastChecked && (
+              <div className="health-time">
+                Checked: {healthCheck.lastChecked.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Mint Flow */}
       <div className="mint-section">
         <h3>⚡ Add Credits</h3>
@@ -177,6 +239,15 @@ export function WalletPanel() {
         {mintState.status === 'waiting' && (
           <div className="invoice-display">
             <p className="invoice-label">Pay this Lightning invoice:</p>
+            <div className="invoice-qr">
+              <QRCodeSVG 
+                value={mintState.invoice.toUpperCase()}
+                size={180}
+                bgColor="#1a1a1a"
+                fgColor="#ffffff"
+                level="M"
+              />
+            </div>
             <div className="invoice-box" onClick={handleCopyInvoice}>
               <code>{mintState.invoice}</code>
             </div>
@@ -227,6 +298,31 @@ export function WalletPanel() {
           </button>
         </div>
       </details>
+
+      {/* Export tokens */}
+      {balance > 0 && (
+        <details className="paste-section">
+          <summary>Export wallet backup</summary>
+          <div className="export-section">
+            <p className="export-hint">Create a token containing your entire balance. You can import this into another wallet.</p>
+            <button 
+              onClick={async () => {
+                try {
+                  const token = await createToken(balance);
+                  await navigator.clipboard.writeText(token);
+                  setMessage({ type: 'success', text: 'Backup token copied to clipboard!' });
+                } catch (err) {
+                  setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to export' });
+                }
+              }}
+              disabled={isLoading}
+              className="export-btn"
+            >
+              📤 Export All ({balance} credits)
+            </button>
+          </div>
+        </details>
+      )}
 
       {message && (
         <p className={`message ${message.type}`}>{message.text}</p>
