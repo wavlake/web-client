@@ -1,8 +1,16 @@
 {
   "version": "1.0.0",
   "goldenBaseline": "2026-01-31T22-52-32Z",
-  "latestSnapshot": "2026-01-31T23-02-08Z",
+  "latestSnapshot": "2026-01-31T23-07-51Z",
   "snapshots": [
+    {
+      "id": "2026-01-31T23-07-51Z",
+      "timestamp": "2026-01-31T23:07:53.112Z",
+      "triggeredBy": "manual",
+      "testsPassed": 0,
+      "testsFailed": 0,
+      "deviationCount": 1
+    },
     {
       "id": "2026-01-31T23-02-08Z",
       "timestamp": "2026-01-31T23:02:09.174Z",

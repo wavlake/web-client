@@ -1,0 +1,52 @@
+{
+  "snapshotId": "2026-01-31T23-07-51Z",
+  "comparedTo": "golden",
+  "timestamp": "2026-01-31T23:07:53.114Z",
+  "artist": {
+    "earnings_delta": 0,
+    "streams_delta": {
+      "paid": 0,
+      "free": 37,
+      "total": 37
+    },
+    "balance_delta": 0
+  },
+  "listener": {
+    "spending_delta": 0,
+    "cap_status_changed": false
+  },
+  "mint": {
+    "keyset_changed": false,
+    "version_changed": false,
+    "health_changed": false,
+    "avg_response_time_delta": -18.50172900000001
+  },
+  "proofPool": {
+    "balance_delta": 0,
+    "proofs_delta": 0
+  },
+  "tests": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "new_failures": [],
+    "fixed": []
+  },
+  "apiMetrics": {
+    "avg_response_time_delta": -43.973096250000026,
+    "error_rate_delta": 0,
+    "slowest_endpoint": "/api/v1/audio/track-2122de24-dda1-4f3d-9637-410e7a741b71",
+    "fastest_endpoint": "/api/v1/content/track-24bf3b5b-a133-4584-a73b-392af8967e87"
+  },
+  "deviations": [
+    {
+      "category": "artist",
+      "field": "streams.total",
+      "expected": 117,
+      "actual": 154,
+      "severity": "info",
+      "message": "Stream count changed by +37"
+    }
+  ]
+}
