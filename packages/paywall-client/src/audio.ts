@@ -1,7 +1,7 @@
 /**
  * Audio endpoint functions
  * 
- * Direct binary streaming from /v1/audio/{dtag}
+ * Direct binary streaming from /api/v1/audio/{dtag}
  */
 
 import type {
@@ -37,7 +37,7 @@ export async function requestAudio(
   token: string,
   options: RequestAudioOptions = {}
 ): Promise<AudioResult> {
-  const url = `${config.apiUrl}/v1/audio/${encodeURIComponent(dtag)}`;
+  const url = `${config.apiUrl}/api/v1/audio/${encodeURIComponent(dtag)}`;
 
   const headers: Record<string, string> = {
     ...config.defaultHeaders,
@@ -131,7 +131,7 @@ export function getAudioUrl(
   token: string,
   paymentId?: string
 ): string {
-  const url = new URL(`${config.apiUrl}/v1/audio/${encodeURIComponent(dtag)}`);
+  const url = new URL(`${config.apiUrl}/api/v1/audio/${encodeURIComponent(dtag)}`);
   url.searchParams.set('token', token);
   
   if (paymentId) {
@@ -163,7 +163,7 @@ export async function getAudioPrice(
   config: PaywallClientConfig,
   dtag: string
 ): Promise<number> {
-  const url = `${config.apiUrl}/v1/audio/${encodeURIComponent(dtag)}`;
+  const url = `${config.apiUrl}/api/v1/audio/${encodeURIComponent(dtag)}`;
 
   const controller = new AbortController();
   const timeoutId = config.timeout

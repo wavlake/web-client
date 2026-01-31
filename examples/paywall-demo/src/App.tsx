@@ -9,9 +9,9 @@ import { Player } from './components/Player';
 import { PlayerProvider } from './hooks/usePlayer';
 import './styles.css';
 
-// Config
-const MINT_URL = 'https://mint.minibits.cash/Bitcoin';
-const API_URL = 'https://wavlake.com';
+// Config (Wavlake staging)
+const MINT_URL = 'https://nutshell-staging-854568123236.us-central1.run.app';
+const API_URL = 'https://api-staging-854568123236.us-central1.run.app';
 
 export function App() {
   // Create wallet and client once

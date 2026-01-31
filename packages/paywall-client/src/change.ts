@@ -1,7 +1,7 @@
 /**
  * Change recovery endpoint functions
  * 
- * Retrieve change from overpayment via /v1/change/{paymentId}
+ * Retrieve change from overpayment via /api/v1/change/{paymentId}
  */
 
 import type {
@@ -36,7 +36,7 @@ export async function fetchChange(
   config: PaywallClientConfig,
   paymentId: string
 ): Promise<ChangeResult> {
-  const url = `${config.apiUrl}/v1/change/${encodeURIComponent(paymentId)}`;
+  const url = `${config.apiUrl}/api/v1/change/${encodeURIComponent(paymentId)}`;
 
   const headers: Record<string, string> = {
     ...config.defaultHeaders,

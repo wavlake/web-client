@@ -1,7 +1,7 @@
 /**
  * Content endpoint functions
  * 
- * JSON-based access with grants from /v1/content/{dtag}
+ * JSON-based access with grants from /api/v1/content/{dtag}
  */
 
 import type {
@@ -43,7 +43,7 @@ export async function requestContent(
   token: string,
   options: RequestContentOptions = {}
 ): Promise<ContentResult> {
-  const url = `${config.apiUrl}/v1/content/${encodeURIComponent(dtag)}`;
+  const url = `${config.apiUrl}/api/v1/content/${encodeURIComponent(dtag)}`;
 
   const headers: Record<string, string> = {
     ...config.defaultHeaders,
@@ -180,7 +180,7 @@ export async function getContentPrice(
   dtag: string,
   nostrAuth?: string
 ): Promise<number> {
-  const url = `${config.apiUrl}/v1/content/${encodeURIComponent(dtag)}`;
+  const url = `${config.apiUrl}/api/v1/content/${encodeURIComponent(dtag)}`;
 
   const headers: Record<string, string> = {
     ...config.defaultHeaders,
