@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWallet } from '@wavlake/paywall-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 type MintState = 
   | { status: 'idle' }
@@ -18,6 +19,7 @@ export function WalletPanel() {
     receiveToken, 
     createMintQuote,
     mintTokens,
+    createToken,
     clear 
   } = useWallet();
   
@@ -177,6 +179,15 @@ export function WalletPanel() {
         {mintState.status === 'waiting' && (
           <div className="invoice-display">
             <p className="invoice-label">Pay this Lightning invoice:</p>
+            <div className="invoice-qr">
+              <QRCodeSVG 
+                value={mintState.invoice.toUpperCase()}
+                size={180}
+                bgColor="#1a1a1a"
+                fgColor="#ffffff"
+                level="M"
+              />
+            </div>
             <div className="invoice-box" onClick={handleCopyInvoice}>
               <code>{mintState.invoice}</code>
             </div>
@@ -227,6 +238,31 @@ export function WalletPanel() {
           </button>
         </div>
       </details>
+
+      {/* Export tokens */}
+      {balance > 0 && (
+        <details className="paste-section">
+          <summary>Export wallet backup</summary>
+          <div className="export-section">
+            <p className="export-hint">Create a token containing your entire balance. You can import this into another wallet.</p>
+            <button 
+              onClick={async () => {
+                try {
+                  const token = await createToken(balance);
+                  await navigator.clipboard.writeText(token);
+                  setMessage({ type: 'success', text: 'Backup token copied to clipboard!' });
+                } catch (err) {
+                  setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to export' });
+                }
+              }}
+              disabled={isLoading}
+              className="export-btn"
+            >
+              📤 Export All ({balance} credits)
+            </button>
+          </div>
+        </details>
+      )}
 
       {message && (
         <p className={`message ${message.type}`}>{message.text}</p>

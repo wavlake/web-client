@@ -957,3 +957,68 @@ header h1 {
   font-weight: bold;
   color: #4ade80;
 }
+
+/* QR Code for invoices */
+.invoice-qr {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  padding: 16px;
+  background: #1a1a1a;
+  border-radius: 12px;
+}
+
+/* Export section */
+.export-section {
+  padding: 12px;
+}
+
+.export-hint {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.export-btn {
+  width: 100%;
+  background: #6366f1;
+}
+
+.export-btn:hover {
+  background: #4f46e5;
+}
+
+/* Connection status indicator */
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+.status-dot.connected {
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade8066;
+}
+
+.status-dot.disconnected {
+  background: #f87171;
+  box-shadow: 0 0 8px #f8717166;
+}
+
+.status-badge {
+  font-size: 0.9rem;
+}
