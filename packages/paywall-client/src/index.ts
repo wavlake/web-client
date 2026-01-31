@@ -51,6 +51,16 @@ export {
   TimeoutError,
 } from './errors.js';
 
+// Retry utilities
+export {
+  withRetry,
+  isNetworkError,
+} from './retry.js';
+
+export type {
+  RetryOptions,
+} from './retry.js';
+
 // Debug logging utilities
 export {
   getLogBuffer,

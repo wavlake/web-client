@@ -53,6 +53,46 @@ export {
   isProofValid,
 } from './checkstate.js';
 
+// Proof inspection utilities
+export {
+  summarizeProofs,
+  describeProof,
+  canCoverAmount,
+  findOptimalProofs,
+  calculateChange,
+} from './inspect.js';
+
+export type {
+  ProofSummary,
+} from './inspect.js';
+
+// Token utilities
+export {
+  validateToken,
+  parseToken,
+  looksLikeToken,
+  getTokenMint,
+  getTokenAmount,
+} from './token.js';
+
+export type {
+  TokenInfo,
+  TokenValidation,
+} from './token.js';
+
+// Health check utilities
+export {
+  checkWalletHealth,
+  quickHealthCheck,
+} from './health.js';
+
+export type {
+  ProofHealth,
+  MintStatus,
+  WalletHealth,
+  HealthCheckOptions,
+} from './health.js';
+
 // Debug logging utilities
 export {
   getLogBuffer,

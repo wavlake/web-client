@@ -44,7 +44,7 @@ describe('PaywallClient', () => {
   describe('requestContent', () => {
     it('should return content result on success', async () => {
       server.use(
-        http.get(`${API_URL}/v1/content/test-track`, () => {
+        http.get(`${API_URL}/api/v1/content/test-track`, () => {
           return HttpResponse.json({
             success: true,
             data: {
@@ -69,7 +69,7 @@ describe('PaywallClient', () => {
 
     it('should throw PaywallError on 402', async () => {
       server.use(
-        http.get(`${API_URL}/v1/content/paid-track`, () => {
+        http.get(`${API_URL}/api/v1/content/paid-track`, () => {
           return HttpResponse.json(
             {
               success: false,
@@ -104,7 +104,7 @@ describe('PaywallClient', () => {
       let capturedHeaders: Headers | null = null;
 
       server.use(
-        http.get(`${API_URL}/v1/content/test-track`, ({ request }) => {
+        http.get(`${API_URL}/api/v1/content/test-track`, ({ request }) => {
           capturedHeaders = request.headers;
           return HttpResponse.json({
             success: true,
@@ -130,7 +130,7 @@ describe('PaywallClient', () => {
   describe('getContentPrice', () => {
     it('should return 0 for free tracks', async () => {
       server.use(
-        http.get(`${API_URL}/v1/content/free-track`, () => {
+        http.get(`${API_URL}/api/v1/content/free-track`, () => {
           return HttpResponse.json({
             success: true,
             data: {
@@ -148,7 +148,7 @@ describe('PaywallClient', () => {
 
     it('should return price for paywalled tracks', async () => {
       server.use(
-        http.get(`${API_URL}/v1/content/paid-track`, () => {
+        http.get(`${API_URL}/api/v1/content/paid-track`, () => {
           return HttpResponse.json(
             {
               success: false,
@@ -177,7 +177,7 @@ describe('PaywallClient', () => {
       let capturedHeaders: Headers | null = null;
 
       server.use(
-        http.get(`${API_URL}/v1/content/test-track`, ({ request }) => {
+        http.get(`${API_URL}/api/v1/content/test-track`, ({ request }) => {
           capturedHeaders = request.headers;
           return HttpResponse.json({
             success: true,
@@ -204,7 +204,7 @@ describe('PaywallClient', () => {
   describe('fetchChange', () => {
     it('should return change token', async () => {
       server.use(
-        http.get(`${API_URL}/v1/change/payment-123`, () => {
+        http.get(`${API_URL}/api/v1/change/payment-123`, () => {
           return HttpResponse.json({
             success: true,
             data: {
@@ -226,7 +226,7 @@ describe('PaywallClient', () => {
 
     it('should return null change if already claimed', async () => {
       server.use(
-        http.get(`${API_URL}/v1/change/payment-456`, () => {
+        http.get(`${API_URL}/api/v1/change/payment-456`, () => {
           return HttpResponse.json({
             success: true,
             data: {
@@ -249,7 +249,7 @@ describe('PaywallClient', () => {
       const client = new PaywallClient({ apiUrl: API_URL });
       const url = client.getAudioUrl('track-123', 'cashuBtoken');
 
-      expect(url).toBe(`${API_URL}/v1/audio/track-123?token=cashuBtoken`);
+      expect(url).toBe(`${API_URL}/api/v1/audio/track-123?token=cashuBtoken`);
     });
 
     it('should include paymentId if provided', () => {
