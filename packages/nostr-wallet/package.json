@@ -1,0 +1,65 @@
+{
+  "name": "@wavlake/nostr-wallet",
+  "version": "0.1.0",
+  "description": "NIP-60/61 Nostr wallet sync and nutzaps for Wavlake SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./nutzap": {
+      "import": "./dist/nutzap/index.js",
+      "types": "./dist/nutzap/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "wavlake",
+    "cashu",
+    "ecash",
+    "nostr",
+    "nip-60",
+    "nip-61",
+    "nutzap",
+    "bitcoin",
+    "wallet"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wavlake/sdk.git",
+    "directory": "packages/nostr-wallet"
+  },
+  "dependencies": {
+    "@wavlake/wallet": "workspace:*"
+  },
+  "peerDependencies": {
+    "@cashu/cashu-ts": ">=2.0.0",
+    "@nostr-dev-kit/ndk": ">=2.0.0"
+  },
+  "devDependencies": {
+    "@cashu/cashu-ts": "^2.2.0",
+    "@nostr-dev-kit/ndk": "^2.10.0",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
