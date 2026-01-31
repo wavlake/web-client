@@ -29,3 +29,7 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# E2E test ecash pool
+proofs.json
+proofs.backup.json
