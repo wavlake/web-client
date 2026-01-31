@@ -1,0 +1,67 @@
+{
+  "name": "@wavlake/wallet",
+  "version": "0.1.0",
+  "description": "Cashu wallet state management with pluggable storage backends",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/storage/index.js",
+      "types": "./dist/storage/index.d.ts"
+    },
+    "./selectors": {
+      "import": "./dist/selectors/index.js",
+      "types": "./dist/selectors/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "wavlake",
+    "cashu",
+    "ecash",
+    "wallet",
+    "bitcoin",
+    "nostr"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wavlake/sdk.git",
+    "directory": "packages/wallet"
+  },
+  "dependencies": {
+    "@cashu/cashu-ts": "^3.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@react-native-async-storage/async-storage": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
