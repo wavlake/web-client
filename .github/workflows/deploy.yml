@@ -26,10 +26,17 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       
-      - name: Build
+      - name: Build SDK packages
+        run: |
+          npm run build -w @wavlake/paywall-client
+          npm run build -w @wavlake/wallet
+          npm run build -w @wavlake/paywall-react
+      
+      - name: Build POC v2 demo
         run: npm run build
+        working-directory: examples/paywall-demo
         env:
           BASE_URL: /web-client/
       
