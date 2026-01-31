@@ -9,9 +9,13 @@
  */
 
 import { readFileSync, writeFileSync, existsSync, copyFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getEncodedTokenV4, type Proof } from '@cashu/cashu-ts';
 import { config } from '../config';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const PROOFS_FILE = resolve(__dirname, '../../../proofs.json');
 const BACKUP_FILE = resolve(__dirname, '../../../proofs.backup.json');

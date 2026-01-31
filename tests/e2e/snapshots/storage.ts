@@ -5,8 +5,12 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
-import { resolve, join } from 'path';
+import { resolve, join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { Snapshot, SnapshotDiff, SnapshotManifest } from './snapshot-types';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const SNAPSHOTS_DIR = resolve(__dirname);
 const MANIFEST_FILE = join(SNAPSHOTS_DIR, 'manifest.json');
