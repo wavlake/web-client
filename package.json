@@ -14,7 +14,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint src --ext ts,tsx --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "npm run test -ws --if-present",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
