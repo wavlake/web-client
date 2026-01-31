@@ -1,0 +1,136 @@
+{
+  "metadata": {
+    "id": "2026-01-31T23-02-08Z",
+    "timestamp": "2026-01-31T23:02:09.174Z",
+    "gitHash": "7b1f2ea",
+    "gitBranch": "main",
+    "triggeredBy": "manual",
+    "duration": 374.056961,
+    "nodeVersion": "v22.22.0",
+    "environment": "staging"
+  },
+  "artist": {
+    "pubkey": "b966d5dff7fe7c138773141af8dbbe73ac6dbf6b79b141e9fe606718ff19fbae",
+    "npub": "npub1h9ndthlhle7p8pmnzsd03ka7wwkxm0mt0xc5r607vpn33lcelwhqz38a42",
+    "balance": {
+      "available_credits": 0,
+      "lifetime_earnings_credits": 0,
+      "pending_payout_credits": 0
+    },
+    "streams": {
+      "paid": 67,
+      "free_tier": 0,
+      "free_access": 71,
+      "honor_paid": 4,
+      "honor_unpaid": 2,
+      "total": 144
+    },
+    "trackCount": 0,
+    "capturedAt": "2026-01-31T23:02:08.867Z"
+  },
+  "listener": {
+    "pubkey": "121c3f322b9be5006b1a8b02d43bc051bb41e96233cd02cd70b2f8ea8ff95988",
+    "npub": "npub1zgwr7v3tn0jsq6c63vpdgw7q2xa5r6tzx0xs9ntsktuw4rletxyql5h27w",
+    "spending": null,
+    "capturedAt": "2026-01-31T23:02:08.904Z"
+  },
+  "anonymousListener": {
+    "tested": true,
+    "canAccessFreeContent": true,
+    "gets402ForPaidContent": true
+  },
+  "mint": {
+    "url": "https://nutshell-staging-854568123236.us-central1.run.app",
+    "name": "Cashu mint",
+    "version": "Nutshell/0.18.2",
+    "activeKeysets": [
+      {
+        "id": "00c89963a0eb87a3",
+        "unit": "sat",
+        "active": true
+      },
+      {
+        "id": "009c98fd4a55013a",
+        "unit": "usd",
+        "active": true
+      },
+      {
+        "id": "000542834cffddfb",
+        "unit": "sat",
+        "active": true
+      },
+      {
+        "id": "00ad82d4e3acaf21",
+        "unit": "usd",
+        "active": true
+      }
+    ],
+    "healthy": true,
+    "responseTimeMs": 77.46510000000006,
+    "capturedAt": "2026-01-31T23:02:08.912Z"
+  },
+  "proofPool": {
+    "totalBalance": 111,
+    "proofCount": 6,
+    "denominations": {
+      "1": 1,
+      "2": 1,
+      "4": 1,
+      "8": 1,
+      "32": 1,
+      "64": 1
+    },
+    "capturedAt": "2026-01-31T23:02:09.022Z"
+  },
+  "tracks": [
+    {
+      "dtag": "track-24bf3b5b-a133-4584-a73b-392af8967e87",
+      "title": "How to Sing",
+      "priceCredits": 2,
+      "accessMode": "paid",
+      "artistPubkey": ""
+    },
+    {
+      "dtag": "track-2122de24-dda1-4f3d-9637-410e7a741b71",
+      "title": "That's My Couch (Instrumental)",
+      "priceCredits": 0,
+      "accessMode": "free",
+      "artistPubkey": ""
+    }
+  ],
+  "apiMetrics": [
+    {
+      "endpoint": "/api/v1/content/track-2122de24-dda1-4f3d-9637-410e7a741b71",
+      "method": "GET",
+      "responseTimeMs": 36.70791699999995,
+      "statusCode": 200,
+      "success": true,
+      "capturedAt": "2026-01-31T23:02:09.022Z"
+    },
+    {
+      "endpoint": "/api/v1/content/track-24bf3b5b-a133-4584-a73b-392af8967e87",
+      "method": "GET",
+      "responseTimeMs": 28.936014999999998,
+      "statusCode": 402,
+      "success": true,
+      "capturedAt": "2026-01-31T23:02:09.023Z"
+    },
+    {
+      "endpoint": "/api/v1/audio/track-2122de24-dda1-4f3d-9637-410e7a741b71",
+      "method": "GET",
+      "responseTimeMs": 150.63992699999994,
+      "statusCode": 200,
+      "success": true,
+      "capturedAt": "2026-01-31T23:02:09.024Z"
+    },
+    {
+      "endpoint": "/api/v1/audio/track-24bf3b5b-a133-4584-a73b-392af8967e87",
+      "method": "GET",
+      "responseTimeMs": 61.638734,
+      "statusCode": 402,
+      "success": true,
+      "capturedAt": "2026-01-31T23:02:09.026Z"
+    }
+  ],
+  "testResults": []
+}
