@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nostr-dev-kit/ndk": "^2.10.0",
+    "@wavlake/nostr-wallet": "workspace:*",
     "@wavlake/paywall-client": "workspace:*",
     "@wavlake/paywall-react": "workspace:*",
     "@wavlake/wallet": "workspace:*",

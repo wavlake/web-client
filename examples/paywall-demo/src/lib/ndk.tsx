@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import NDK from '@nostr-dev-kit/ndk';
 
-const RELAYS = ['wss://relay.wavlake.com'];
+const RELAYS = [
+  'wss://relay.wavlake.com',
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+];
 
 interface NDKContextType {
   ndk: NDK | null;
