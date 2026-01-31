@@ -72,7 +72,7 @@ async function createRefillQuote(amount: number = REFILL_AMOUNT) {
   
   try {
     const mint = new Mint(MINT_URL);
-    const wallet = new Wallet(mint);
+    const wallet = new Wallet(mint, { unit: 'usd' });
     await wallet.loadMint();
     
     const quote = await wallet.createMintQuoteBolt11(amount);

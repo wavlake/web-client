@@ -19,7 +19,7 @@ const MINT_URL = 'https://nutshell-staging-854568123236.us-central1.run.app';
 
 async function checkQuoteAndMint(quoteId: string, amount: number): Promise<Proof[] | null> {
   const mint = new Mint(MINT_URL);
-  const wallet = new Wallet(mint);
+  const wallet = new Wallet(mint, { unit: 'usd' });
   await wallet.loadMint();
   
   // Check quote status
