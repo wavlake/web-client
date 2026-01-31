@@ -18,7 +18,13 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config tests/e2e/vitest.config.ts",
-    "test:e2e:watch": "vitest --config tests/e2e/vitest.config.ts"
+    "test:e2e:watch": "vitest --config tests/e2e/vitest.config.ts",
+    "snapshot": "npx tsx tests/e2e/snapshots/run-snapshot.ts",
+    "snapshot:capture": "npx tsx tests/e2e/snapshots/run-snapshot.ts capture",
+    "snapshot:list": "npx tsx tests/e2e/snapshots/run-snapshot.ts list",
+    "snapshot:compare": "npx tsx tests/e2e/snapshots/run-snapshot.ts compare",
+    "snapshot:set-golden": "npx tsx tests/e2e/snapshots/run-snapshot.ts set-golden",
+    "snapshot:export": "npx tsx tests/e2e/snapshots/run-snapshot.ts export-csv"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^3.3.0",

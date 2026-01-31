@@ -1,0 +1,181 @@
+name: E2E Nightly Tests
+
+on:
+  schedule:
+    # Run at 3:00 AM UTC every day
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      trigger:
+        description: 'Trigger type'
+        required: false
+        default: 'manual'
+        type: choice
+        options:
+          - manual
+          - ci
+          - nightly
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  e2e-tests:
+    name: Run E2E Tests & Capture Snapshot
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history for git info
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Restore proof pool (if exists)
+        uses: actions/cache@v4
+        with:
+          path: proofs.json
+          key: proof-pool-${{ github.run_id }}
+          restore-keys: |
+            proof-pool-
+      
+      - name: Run E2E Tests with Snapshot
+        id: tests
+        run: |
+          TRIGGER="${{ github.event.inputs.trigger || 'nightly' }}"
+          npx tsx tests/e2e/snapshots/run-snapshot.ts capture --trigger=$TRIGGER
+        continue-on-error: true
+      
+      - name: Export time series data
+        run: |
+          npx tsx tests/e2e/snapshots/run-snapshot.ts export-csv > tests/e2e/snapshots/timeseries.csv
+      
+      - name: Commit snapshot
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add all snapshot files
+          git add tests/e2e/snapshots/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            SNAPSHOT_ID=$(ls -1t tests/e2e/snapshots/ | grep -E '^[0-9]{4}-' | head -1)
+            git commit -m "chore(e2e): nightly snapshot $SNAPSHOT_ID"
+            git push
+          fi
+      
+      - name: Save proof pool
+        uses: actions/cache/save@v4
+        with:
+          path: proofs.json
+          key: proof-pool-${{ github.run_id }}
+      
+      - name: Check for critical deviations
+        run: |
+          # Check the latest snapshot for critical deviations
+          LATEST=$(ls -1t tests/e2e/snapshots/ | grep -E '^[0-9]{4}-' | head -1)
+          if [ -f "tests/e2e/snapshots/$LATEST/diff-vs-golden.json" ]; then
+            CRITICAL=$(cat "tests/e2e/snapshots/$LATEST/diff-vs-golden.json" | jq '[.deviations[] | select(.severity == "critical")] | length')
+            if [ "$CRITICAL" -gt 0 ]; then
+              echo "::error::Found $CRITICAL critical deviations!"
+              exit 1
+            fi
+          fi
+      
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-snapshot-${{ github.run_id }}
+          path: |
+            tests/e2e/snapshots/manifest.json
+            tests/e2e/snapshots/timeseries.csv
+            tests/e2e/snapshots/*/
+          retention-days: 90
+      
+      - name: Summary
+        if: always()
+        run: |
+          LATEST=$(ls -1t tests/e2e/snapshots/ | grep -E '^[0-9]{4}-' | head -1)
+          echo "## E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Snapshot:** \`$LATEST\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "tests/e2e/snapshots/$LATEST/diff-vs-golden.json" ]; then
+            DEVS=$(cat "tests/e2e/snapshots/$LATEST/diff-vs-golden.json" | jq '.deviations | length')
+            echo "**Deviations:** $DEVS" >> $GITHUB_STEP_SUMMARY
+            
+            # List critical deviations
+            CRITICAL=$(cat "tests/e2e/snapshots/$LATEST/diff-vs-golden.json" | jq -r '[.deviations[] | select(.severity == "critical") | .message] | join("\n")')
+            if [ -n "$CRITICAL" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 🔴 Critical Deviations" >> $GITHUB_STEP_SUMMARY
+              echo "$CRITICAL" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
+
+  notify-on-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    if: failure()
+    
+    steps:
+      - name: Create issue on failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔴 E2E Nightly Tests Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            The nightly E2E test run has failed.
+            
+            **Run:** [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            **Triggered:** ${context.eventName}
+            
+            Please investigate the snapshot deviations and test failures.
+            `;
+            
+            // Check if similar issue already exists
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'e2e-failure',
+            });
+            
+            const existingIssue = issues.find(i => i.title.includes('E2E Nightly Tests Failed'));
+            
+            if (existingIssue) {
+              // Comment on existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body,
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['e2e-failure', 'automated'],
+              });
+            }
