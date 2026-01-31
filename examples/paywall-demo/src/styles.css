@@ -698,3 +698,233 @@ header h1 {
   min-height: 200px;
   color: #888;
 }
+
+/* ==================== MOBILE STYLES ==================== */
+@media (max-width: 600px) {
+  /* App Layout */
+  .app {
+    gap: 12px;
+    padding: 12px;
+    padding-bottom: 120px;
+  }
+
+  header {
+    padding: 12px 0;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  /* Panels */
+  .panel {
+    padding: 16px;
+    border-radius: 10px;
+  }
+
+  .panel h2 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+
+  /* Settings - Stack on mobile */
+  .settings-panel {
+    padding: 14px 16px;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .setting-row:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .setting-row label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #aaa;
+  }
+
+  .toggle-group {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+
+  .toggle-group button {
+    padding: 10px 8px;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .setting-description {
+    font-size: 0.75rem;
+    margin-top: 8px;
+  }
+
+  /* Auth on mobile */
+  .auth-status {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .auth-status .pubkey {
+    font-size: 0.8rem;
+  }
+
+  .auth-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn-small {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .nsec-input-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .nsec-input-row input {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+
+  .nsec-input-row button {
+    width: 100%;
+    padding: 12px;
+  }
+
+  /* Wallet Panel */
+  .balance-amount {
+    font-size: 2.5rem;
+  }
+
+  .mint-form {
+    flex-direction: row;
+  }
+
+  .mint-amount-input {
+    width: 70px;
+  }
+
+  .receive-form {
+    flex-direction: column;
+  }
+
+  .receive-form input {
+    width: 100%;
+  }
+
+  .receive-form button {
+    width: 100%;
+  }
+
+  /* Track List */
+  .track-row {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .track-artwork {
+    width: 44px;
+    height: 44px;
+  }
+
+  .track-title {
+    font-size: 0.95rem;
+  }
+
+  .track-artist {
+    font-size: 0.8rem;
+  }
+
+  .track-price {
+    font-size: 0.8rem;
+  }
+
+  .track-actions button {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Player */
+  .player {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .now-playing {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .audio-element {
+    display: none; /* Hide native controls on mobile */
+  }
+
+  .stop-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  /* Debug */
+  .debug-toggle {
+    bottom: 90px;
+    right: 12px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  .debug-panel {
+    max-height: 250px;
+  }
+
+  .debug-logs {
+    font-size: 0.7rem;
+  }
+
+  /* Invoice display */
+  .invoice-box code {
+    font-size: 0.65rem;
+  }
+
+  .invoice-actions {
+    flex-direction: column;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 380px) {
+  header h1 {
+    font-size: 1.2rem;
+  }
+
+  .balance-amount {
+    font-size: 2rem;
+  }
+
+  .toggle-group button {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+  }
+
+  .btn-small {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+}
