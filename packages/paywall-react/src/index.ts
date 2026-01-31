@@ -87,6 +87,18 @@ export {
   type UseTrackPlayerOptions,
 } from './hooks/useTrackPlayer.js';
 
+export {
+  useContentPrice,
+  useContentPrices,
+  type ContentPriceState,
+} from './hooks/useContentPrice.js';
+
+export {
+  useTrackPayment,
+  type TrackPaymentState,
+  type PaymentStatus,
+} from './hooks/useTrackPayment.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
