@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['**/*.test.ts'],
+    // Only include e2e tests, not unit tests from packages/
+    include: ['tests/e2e/**/*.test.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,
     // Run tests sequentially (important for stateful tests)
