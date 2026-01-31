@@ -2,11 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import NDK from '@nostr-dev-kit/ndk';
 
 const RELAYS = [
+  'wss://relay.wavlake.com',  // Primary relay for NIP-60 wallet storage
   'wss://relay.damus.io',
   'wss://nos.lol',
-  'wss://relay.nostr.band',
-  'wss://relay.snort.social',
-  'wss://nostr.wine',
 ];
 
 interface NDKContextType {
