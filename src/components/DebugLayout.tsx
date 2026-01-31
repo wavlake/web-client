@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, useEffect } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { DebugPanel, JsonViewer } from './DebugPanel';
 import { DebugLog } from './DebugLog';
 import { LoginModal } from './LoginModal';
@@ -7,6 +7,9 @@ import { useWalletStore } from '../stores/wallet';
 import { usePlayerStore } from '../stores/player';
 import { useTokenCacheStore } from '../stores/tokenCache';
 import { useSettingsStore } from '../stores/settings';
+import { useAuthStore } from '../stores/auth';
+import { useNDK } from '../lib/ndk';
+import { useWallet } from '../lib/wallet';
 import { PurchasePanel } from './PurchasePanel';
 import AudioPlayer from './AudioPlayer';
 import { getDecodedToken, type Token } from '@cashu/cashu-ts';
@@ -17,11 +20,27 @@ interface DebugLayoutProps {
 
 // Wallet panel connected to real store with token import
 function WalletPanel() {
-  const proofs = useWalletStore(state => state.proofs);
+  // Use the new wallet context
+  const { balance, proofs, isReady, isSyncing, storageMode, error: walletError, reload, addProofs: addProofsToWallet } = useWallet();
+  
+  // Also keep the old store for backward compatibility during transition
+  const storeProofs = useWalletStore(state => state.proofs);
   const pendingProofs = useWalletStore(state => state.pendingProofs);
-  const balance = useWalletStore(state => state.getBalance());
-  const addProofs = useWalletStore(state => state.addProofs);
+  const storeBalance = useWalletStore(state => state.getBalance());
+  const storeAddProofs = useWalletStore(state => state.addProofs);
   const reset = useWalletStore(state => state.reset);
+  
+  // Use the new wallet context when available, fall back to store
+  const displayBalance = isReady ? balance : storeBalance;
+  const displayProofs = isReady ? proofs : storeProofs;
+  
+  const addProofs = async (newProofs: typeof proofs) => {
+    if (isReady) {
+      await addProofsToWallet(newProofs);
+    } else {
+      storeAddProofs(newProofs);
+    }
+  };
 
   const [tokenInput, setTokenInput] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
@@ -96,15 +115,43 @@ function WalletPanel() {
   return (
     <DebugPanel title="Wallet State">
       <div className="space-y-3">
+        {/* Storage mode indicator */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${storageMode === 'nostr' ? 'text-purple-400' : 'text-gray-400'}`}>
+              {storageMode === 'nostr' ? '☁️ Nostr' : '💾 Local'}
+            </span>
+            {isSyncing && (
+              <span className="text-[10px] text-yellow-400 animate-pulse">syncing...</span>
+            )}
+          </div>
+          {storageMode === 'nostr' && isReady && (
+            <button
+              onClick={reload}
+              disabled={isSyncing}
+              className="text-[10px] text-purple-400 hover:text-purple-300 disabled:opacity-50"
+            >
+              ↻ Refresh
+            </button>
+          )}
+        </div>
+
+        {/* Error display */}
+        {walletError && (
+          <div className="text-xs text-red-400 p-2 bg-red-400/10 rounded">
+            {walletError}
+          </div>
+        )}
+
         <div className="flex justify-between items-center">
           <span className="text-xs text-gray-400">Balance</span>
-          <span className="text-sm font-mono text-green-400">{balance} credits</span>
+          <span className="text-sm font-mono text-green-400">{displayBalance} credits</span>
         </div>
         
         {/* Proofs list with click-to-inspect */}
         <div>
-          <span className="text-xs text-gray-400 block mb-1">Proofs ({proofs.length})</span>
-          {proofs.length > 0 ? (
+          <span className="text-xs text-gray-400 block mb-1">Proofs ({displayProofs.length})</span>
+          {displayProofs.length > 0 ? (
             <div className="space-y-1">
               {proofs.map((p, i) => (
                 <div key={p.secret?.slice(0, 8) || i}>
@@ -188,7 +235,7 @@ function WalletPanel() {
           )}
         </div>
 
-        {proofs.length > 0 && (
+        {displayProofs.length > 0 && (
           <button
             onClick={reset}
             className="w-full py-1 text-xs text-gray-400 hover:text-red-400 transition-colors"
@@ -320,10 +367,52 @@ function SettingsPanel() {
   const togglePrebuild = useSettingsStore((s) => s.togglePrebuild);
   const jitSwapEnabled = useSettingsStore((s) => s.jitSwapEnabled);
   const toggleJitSwap = useSettingsStore((s) => s.toggleJitSwap);
+  const walletStorageMode = useSettingsStore((s) => s.walletStorageMode);
+  const toggleWalletStorageMode = useSettingsStore((s) => s.toggleWalletStorageMode);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn());
 
   return (
     <DebugPanel title="⚙️ Settings">
       <div className="space-y-3">
+        {/* Wallet Storage Mode Toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs text-white block">Wallet Storage</span>
+            <span className="text-[10px] text-gray-500">
+              {walletStorageMode === 'nostr' ? '☁️ Nostr relays (NIP-60)' : '💾 Local browser storage'}
+            </span>
+          </div>
+          <button
+            onClick={toggleWalletStorageMode}
+            disabled={walletStorageMode === 'local' && !isLoggedIn}
+            title={!isLoggedIn && walletStorageMode === 'local' ? 'Login required for Nostr storage' : ''}
+            className={`relative w-10 h-5 rounded-full transition-colors ${
+              walletStorageMode === 'nostr' ? 'bg-purple-500' : 'bg-surface-light'
+            } ${!isLoggedIn && walletStorageMode === 'local' ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <div
+              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                walletStorageMode === 'nostr' ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Nostr storage info */}
+        {walletStorageMode === 'nostr' && (
+          <div className="text-[10px] text-purple-400 p-2 bg-purple-500/10 rounded border border-purple-500/20">
+            ☁️ Tokens synced to Nostr relays. Access your wallet from any NIP-60 compatible client.
+          </div>
+        )}
+
+        {!isLoggedIn && walletStorageMode === 'local' && (
+          <div className="text-[10px] text-gray-500 p-2 bg-surface rounded">
+            💡 Login to enable Nostr wallet sync
+          </div>
+        )}
+
+        <div className="border-t border-surface-light pt-3" />
+
         {/* Prebuild Toggle */}
         <div className="flex items-center justify-between">
           <div>
@@ -459,43 +548,34 @@ function NowPlaying() {
 }
 
 export default function DebugLayout({ trackList }: DebugLayoutProps) {
-  const [pubkey, setPubkey] = useState<string | null>(null);
+  const { ndk } = useNDK();
+  const { pubkey, loginWithNip07, loginWithNsec, logout } = useAuthStore();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [logExpanded, setLogExpanded] = useState(false);
 
-  // Check for existing login on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('nostr_pubkey');
-    if (stored) {
-      setPubkey(stored);
-      debugLog('event', 'Restored pubkey from storage', { pubkey: stored.slice(0, 16) + '...' });
-    }
-  }, []);
-
   const handleConnect = () => {
     if (pubkey) {
-      // Logout
-      localStorage.removeItem('nostr_pubkey');
-      localStorage.removeItem('nostr_privkey');
-      setPubkey(null);
-      debugLog('event', 'User logged out');
+      logout();
       return;
     }
-
-    // Show login modal
     setShowLoginModal(true);
   };
 
-  const handleLogin = (newPubkey: string, privkey?: string) => {
-    localStorage.setItem('nostr_pubkey', newPubkey);
-    if (privkey) {
-      localStorage.setItem('nostr_privkey', privkey);
+  const handleLogin = async (newPubkey: string, privkey?: string) => {
+    if (!ndk) {
+      debugLog('error', 'NDK not initialized');
+      return;
     }
-    setPubkey(newPubkey);
-    debugLog('event', 'User logged in', { 
-      pubkey: newPubkey.slice(0, 16) + '...',
-      method: privkey ? 'nsec' : 'NIP-07'
-    });
+    
+    if (privkey) {
+      loginWithNsec(newPubkey, privkey, ndk);
+    } else {
+      try {
+        await loginWithNip07(ndk);
+      } catch (err) {
+        debugLog('error', 'NIP-07 login failed', { error: String(err) });
+      }
+    }
   };
 
   const shortPubkey = pubkey ? `${pubkey.slice(0, 8)}...` : null;

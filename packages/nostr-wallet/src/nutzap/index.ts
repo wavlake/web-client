@@ -5,7 +5,7 @@
  * 
  * @example
  * ```ts
- * import { NutzapReceiver, NutzapSender } from '@wavlake/nostr-wallet/nutzap';
+ * import { NutzapReceiver, NutzapInfo } from '@wavlake/nostr-wallet/nutzap';
  * ```
  * 
  * @packageDocumentation
@@ -19,7 +19,12 @@ export type {
   NutzapHandler,
 } from '../types.js';
 
-// TODO: Implement and export
-// export { NutzapSender } from './sender.js';
-// export { NutzapReceiver } from './receiver.js';
-// export { NutzapInfo } from './info.js';
+// Nutzap components
+export { NutzapInfo } from './info.js';
+export type { NutzapInfoConfig, PublishInfoOptions } from './info.js';
+
+export { NutzapReceiver } from './receiver.js';
+export type { NutzapReceiverConfig } from './receiver.js';
+
+export { NutzapSender } from './sender.js';
+export type { NutzapSenderConfig, NutzapSendResult } from './sender.js';

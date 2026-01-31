@@ -53,6 +53,9 @@ export {
   NUTZAP_KIND,
 } from './types.js';
 
-// TODO: Implement and export
-// export { Nip60Adapter } from './adapter.js';
-// export { Nip60Wallet } from './wallet.js';
+// Core adapter
+export { Nip60Adapter } from './adapter.js';
+
+// Extended wallet
+export { Nip60Wallet } from './wallet.js';
+export type { Nip60WalletConfig } from './wallet.js';

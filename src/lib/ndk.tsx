@@ -1,10 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import NDK from '@nostr-dev-kit/ndk';
+import { restoreAuth } from '../stores/auth';
 
-// Wavlake relay only
+// Wavlake relay + general relays for NIP-60
 const DEFAULT_RELAYS = [
   'wss://relay.wavlake.com',
+  'wss://relay.damus.io',
+  'wss://nos.lol',
 ];
 
 interface NDKContextType {
@@ -29,6 +32,9 @@ export function NDKProvider({ children }: { children: ReactNode }) {
     instance.connect().then(() => {
       setConnected(true);
       console.log('Connected to Nostr relays');
+      
+      // Restore auth/signer if we have persisted credentials
+      restoreAuth(instance);
     });
 
     setNdk(instance);

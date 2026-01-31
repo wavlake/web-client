@@ -32,6 +32,7 @@ jobs:
         run: |
           npm run build -w @wavlake/paywall-client
           npm run build -w @wavlake/wallet
+          npm run build -w @wavlake/nostr-wallet
           npm run build -w @wavlake/paywall-react
       
       - name: Build POC v2 demo

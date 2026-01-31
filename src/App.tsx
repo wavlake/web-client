@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { NDKProvider } from './lib/ndk';
+import { WalletProvider } from './lib/wallet';
 import DebugLayout from './components/DebugLayout';
 import TrackList from './components/TrackList';
 import { initTokenCache } from './stores/tokenCache';
@@ -20,7 +21,9 @@ function App() {
 
   return (
     <NDKProvider>
-      <DebugLayout trackList={<TrackList />} />
+      <WalletProvider>
+        <DebugLayout trackList={<TrackList />} />
+      </WalletProvider>
     </NDKProvider>
   );
 }

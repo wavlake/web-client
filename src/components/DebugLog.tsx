@@ -12,6 +12,7 @@ const TYPE_COLORS: Record<LogEntry['type'], string> = {
   app: 'text-gray-400',
   tokenCache: 'text-orange-400',
   smartPrebuild: 'text-pink-400',
+  auth: 'text-indigo-400',
 };
 
 const TYPE_ICONS: Record<LogEntry['type'], string> = {
@@ -24,6 +25,7 @@ const TYPE_ICONS: Record<LogEntry['type'], string> = {
   app: '🚀',
   tokenCache: '🎟️',
   smartPrebuild: '🧠',
+  auth: '🔐',
 };
 
 function LogEntryRow({ entry }: { entry: LogEntry }) {

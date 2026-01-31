@@ -5,7 +5,8 @@
  */
 
 import type { Proof } from '@cashu/cashu-ts';
-import type { NDK, NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
+import type NDK from '@nostr-dev-kit/ndk';
+import type { NDKEvent, NDKSigner } from '@nostr-dev-kit/ndk';
 
 // ============================================================================
 // Event Kinds
