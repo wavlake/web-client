@@ -53,6 +53,30 @@ export {
   isProofValid,
 } from './checkstate.js';
 
+// Token utilities
+export {
+  validateToken,
+  parseToken,
+  looksLikeToken,
+  getTokenMint,
+  getTokenAmount,
+  type TokenInfo,
+  type TokenValidation,
+} from './token.js';
+
+// Proof inspection utilities
+export {
+  summarizeProofs,
+  describeProof,
+  canCoverAmount,
+  findOptimalProofs,
+  calculateChange,
+  groupByKeyset,
+  getDenominations,
+  formatBalance,
+  type ProofSummary,
+} from './inspect.js';
+
 // Debug logging utilities
 export {
   getLogBuffer,
