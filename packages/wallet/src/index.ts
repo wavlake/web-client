@@ -53,6 +53,21 @@ export {
   isProofValid,
 } from './checkstate.js';
 
+// Token inspection utilities
+export {
+  inspectToken,
+  validateToken,
+  getTokenAmount,
+  getTokenMint,
+  getTokenProofs,
+  isTokenFormat,
+  summarizeToken,
+  TokenParseError,
+  type TokenInfo,
+  type ValidateTokenOptions,
+  type TokenValidationResult,
+} from './token.js';
+
 // Debug logging utilities
 export {
   getLogBuffer,
