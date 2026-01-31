@@ -40,6 +40,7 @@ export function Nip60DebugPanel() {
   const { walletStorage } = useSettings();
   const { proofs, balance, isReady } = useWallet();
 
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [loading, setLoading] = useState(false);
   const [tokenEvents, setTokenEvents] = useState<TokenEvent[]>([]);
   const [historyEvents, setHistoryEvents] = useState<HistoryEvent[]>([]);
@@ -212,8 +213,10 @@ export function Nip60DebugPanel() {
   if (walletStorage !== 'nostr') {
     return (
       <section className="panel nip60-debug-panel">
-        <h2>🔐 NIP-60 Debug</h2>
-        <p className="info-text">Switch to Nostr storage to view NIP-60 data</p>
+        <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+          <span>{isCollapsed ? '▶' : '▼'} 🔐 NIP-60 Debug</span>
+        </h2>
+        {!isCollapsed && <p className="info-text">Switch to Nostr storage to view NIP-60 data</p>}
       </section>
     );
   }
@@ -221,19 +224,26 @@ export function Nip60DebugPanel() {
   if (!isLoggedIn) {
     return (
       <section className="panel nip60-debug-panel">
-        <h2>🔐 NIP-60 Debug</h2>
-        <p className="info-text">Login to view NIP-60 wallet data</p>
+        <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+          <span>{isCollapsed ? '▶' : '▼'} 🔐 NIP-60 Debug</span>
+        </h2>
+        {!isCollapsed && <p className="info-text">Login to view NIP-60 wallet data</p>}
       </section>
     );
   }
 
   return (
     <section className="panel nip60-debug-panel">
-      <h2>🔐 NIP-60 Debug</h2>
+      <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span>{isCollapsed ? '▶' : '▼'} 🔐 NIP-60 Debug</span>
+        <span className="header-badge">{tokenEvents.length} events</span>
+      </h2>
 
+      {isCollapsed ? null : (
+        <>
       {/* Refresh button */}
       <button 
-        onClick={fetchNip60Data} 
+        onClick={(e) => { e.stopPropagation(); fetchNip60Data(); }} 
         disabled={loading}
         className="refresh-btn"
       >
@@ -512,7 +522,27 @@ export function Nip60DebugPanel() {
           color: #4ade80;
           min-width: 40px;
         }
+        .collapsible-header {
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          user-select: none;
+        }
+        .collapsible-header:hover {
+          opacity: 0.8;
+        }
+        .header-badge {
+          font-size: 10px;
+          font-weight: normal;
+          color: #a78bfa;
+          background: #a78bfa22;
+          padding: 2px 8px;
+          border-radius: 10px;
+        }
       `}</style>
+        </>
+      )}
     </section>
   );
 }
