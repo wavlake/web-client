@@ -35,7 +35,7 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
           ndk,
           signer,
           mintUrl: MINT_URL,
-          unit: 'sat',
+          unit: 'usd',
         });
       } else {
         console.log('💾 Using local storage');
@@ -45,6 +45,7 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
       const newWallet = new Wallet({
         mintUrl: MINT_URL,
         storage,
+        unit: 'usd',
         debug: true,
       });
 
