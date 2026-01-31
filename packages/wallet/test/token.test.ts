@@ -21,6 +21,7 @@ vi.mock('@cashu/cashu-ts', () => ({
       return { mint: 'https://mint.test.com', proofs: [] };
     }
     // Default valid token response
+    // cashu-ts getDecodedToken normalizes to 'memo' field for both v3 and v4
     return {
       mint: 'https://mint.wavlake.com',
       unit: 'usd',

@@ -181,8 +181,9 @@ function extractTokenInfo(token: Token, original: string): TokenInfo {
     const unit = tokenAny.unit;
     const proofs = tokenAny.proofs || [];
     const amount = proofs.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const memo = tokenAny.memo;
     
-    return { version, mint, unit, amount, proofCount: proofs.length };
+    return { version, mint, unit, amount, proofCount: proofs.length, memo };
   }
   
   // V4 raw format (with 't' array and 'm' mint)
