@@ -95,6 +95,100 @@ export class PaywallError extends Error implements PaymentError {
       details: this.details,
     };
   }
+
+  /**
+   * Get a user-friendly error message suitable for display
+   */
+  get userMessage(): string {
+    return getUserFriendlyMessage(this.code, this.details);
+  }
+
+  /**
+   * Get a suggested recovery action
+   */
+  get recoverySuggestion(): string | undefined {
+    return getRecoverySuggestion(this.code);
+  }
+
+  /**
+   * Check if this error is recoverable (user can take action)
+   */
+  get isRecoverable(): boolean {
+    return ['PAYMENT_REQUIRED', 'INSUFFICIENT_PAYMENT', 'RATE_LIMITED'].includes(this.code);
+  }
+}
+
+/**
+ * Get a user-friendly message for an error code
+ */
+function getUserFriendlyMessage(
+  code: PaymentErrorCode,
+  details: PaymentError['details']
+): string {
+  switch (code) {
+    case 'PAYMENT_REQUIRED':
+      if (details.required) {
+        return `This track costs ${details.required} credit${details.required === 1 ? '' : 's'}`;
+      }
+      return 'Payment required to access this content';
+
+    case 'INSUFFICIENT_PAYMENT':
+      if (details.required && details.provided) {
+        const needed = details.required - details.provided;
+        return `Need ${needed} more credit${needed === 1 ? '' : 's'} (sent ${details.provided}, costs ${details.required})`;
+      }
+      return 'Payment was not enough for this content';
+
+    case 'TOKEN_ALREADY_SPENT':
+      return 'This token has already been used';
+
+    case 'INVALID_TOKEN':
+      return 'The payment token is invalid or corrupted';
+
+    case 'KEYSET_MISMATCH':
+      if (details.mintUrl) {
+        return `Tokens must be from ${details.mintUrl}`;
+      }
+      return 'Tokens are from the wrong mint';
+
+    case 'CONTENT_NOT_FOUND':
+      return 'This track could not be found';
+
+    case 'INVALID_GRANT':
+      return 'Your access has expired. Please pay again.';
+
+    case 'RATE_LIMITED':
+      return 'Too many requests. Please wait a moment.';
+
+    default:
+      return 'Something went wrong. Please try again.';
+  }
+}
+
+/**
+ * Get a recovery suggestion for an error code
+ */
+function getRecoverySuggestion(code: PaymentErrorCode): string | undefined {
+  switch (code) {
+    case 'PAYMENT_REQUIRED':
+    case 'INSUFFICIENT_PAYMENT':
+      return 'Add more credits to your wallet';
+
+    case 'TOKEN_ALREADY_SPENT':
+      return 'Create a new token from your wallet';
+
+    case 'KEYSET_MISMATCH':
+      return 'Get tokens from the correct mint';
+
+    case 'RATE_LIMITED':
+      return 'Wait a few seconds and try again';
+
+    case 'INVALID_GRANT':
+      return 'Start a new playback session';
+
+    default:
+      return undefined;
+  }
 }
 
 /**
