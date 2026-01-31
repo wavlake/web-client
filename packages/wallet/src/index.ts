@@ -60,8 +60,11 @@ export {
   looksLikeToken,
   getTokenMint,
   getTokenAmount,
-  type TokenInfo,
-  type TokenValidation,
+} from './token.js';
+
+export type {
+  TokenInfo,
+  TokenValidation,
 } from './token.js';
 
 // Proof inspection utilities
@@ -74,8 +77,24 @@ export {
   groupByKeyset,
   getDenominations,
   formatBalance,
-  type ProofSummary,
 } from './inspect.js';
+
+export type {
+  ProofSummary,
+} from './inspect.js';
+
+// Health check utilities
+export {
+  checkWalletHealth,
+  quickHealthCheck,
+} from './health.js';
+
+export type {
+  ProofHealth,
+  MintStatus,
+  WalletHealth,
+  HealthCheckOptions,
+} from './health.js';
 
 // Debug logging utilities
 export {

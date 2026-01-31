@@ -4,8 +4,7 @@
  * Helpers for parsing and validating Cashu tokens.
  */
 
-import { getDecodedToken } from '@cashu/cashu-ts';
-import type { Token } from '@cashu/cashu-ts';
+import { getDecodedToken, type Token } from '@cashu/cashu-ts';
 
 // ============================================================================
 // Types
@@ -48,6 +47,9 @@ export interface TokenValidation {
 /**
  * Parse and validate a Cashu token string
  * 
+ * @param tokenStr - Cashu token string (cashuA or cashuB format)
+ * @returns Validation result with token info if valid
+ * 
  * @example
  * ```ts
  * const result = validateToken('cashuBpXh...');
@@ -60,16 +62,26 @@ export interface TokenValidation {
  * ```
  */
 export function validateToken(tokenStr: string): TokenValidation {
+  // Basic format check
+  if (!tokenStr || typeof tokenStr !== 'string') {
+    return { valid: false, error: 'Token must be a non-empty string' };
+  }
+
+  const trimmed = tokenStr.trim();
+  
+  // Check prefix
+  if (!trimmed.startsWith('cashuA') && !trimmed.startsWith('cashuB')) {
+    return { valid: false, error: 'Token must start with cashuA or cashuB' };
+  }
+
   try {
-    const info = parseToken(tokenStr);
-    return {
-      valid: true,
-      info,
-    };
-  } catch (error) {
-    return {
-      valid: false,
-      error: error instanceof Error ? error.message : String(error),
+    const token = getDecodedToken(trimmed);
+    const info = extractTokenInfo(token, trimmed);
+    return { valid: true, info };
+  } catch (err) {
+    return { 
+      valid: false, 
+      error: err instanceof Error ? err.message : 'Failed to decode token',
     };
   }
 }
@@ -78,54 +90,26 @@ export function validateToken(tokenStr: string): TokenValidation {
  * Parse a token without validation (for quick inspection)
  * Throws if token is invalid.
  * 
- * @param tokenStr - Cashu token string (cashuA or cashuB format)
+ * @param tokenStr - Cashu token string
  * @returns Token information
  * @throws Error if token cannot be parsed
+ * 
+ * @example
+ * ```ts
+ * try {
+ *   const info = parseToken('cashuBpXh...');
+ *   console.log('Mint:', info.mint);
+ * } catch (err) {
+ *   console.error('Invalid token');
+ * }
+ * ```
  */
 export function parseToken(tokenStr: string): TokenInfo {
-  if (!tokenStr || typeof tokenStr !== 'string') {
-    throw new Error('Token must be a non-empty string');
+  const result = validateToken(tokenStr);
+  if (!result.valid) {
+    throw new Error(result.error || 'Invalid token');
   }
-
-  const trimmed = tokenStr.trim();
-  
-  // Detect version from prefix
-  const version = detectVersion(trimmed);
-  if (!version) {
-    throw new Error('Invalid token format: must start with cashuA or cashuB');
-  }
-
-  // Decode the token
-  let decoded: Token;
-  try {
-    decoded = getDecodedToken(trimmed);
-  } catch (decodeError) {
-    throw new Error(`Failed to decode token: ${decodeError instanceof Error ? decodeError.message : String(decodeError)}`);
-  }
-
-  // Extract mint URL
-  const mint = decoded.mint;
-  if (!mint) {
-    throw new Error('Token has no mint URL');
-  }
-
-  // Extract proofs
-  const proofs = decoded.proofs || [];
-  if (proofs.length === 0) {
-    throw new Error('Token has no proofs');
-  }
-
-  // Calculate total amount
-  const amount = proofs.reduce((sum, p) => sum + p.amount, 0);
-
-  return {
-    version,
-    mint,
-    unit: decoded.unit,
-    amount,
-    proofCount: proofs.length,
-    memo: decoded.memo,
-  };
+  return result.info!;
 }
 
 /**
@@ -134,11 +118,17 @@ export function parseToken(tokenStr: string): TokenInfo {
  * 
  * @param str - String to check
  * @returns true if the string starts with cashuA or cashuB
+ * 
+ * @example
+ * ```ts
+ * if (looksLikeToken(userInput)) {
+ *   const result = validateToken(userInput);
+ *   // ...
+ * }
+ * ```
  */
 export function looksLikeToken(str: string): boolean {
-  if (!str || typeof str !== 'string') {
-    return false;
-  }
+  if (!str || typeof str !== 'string') return false;
   const trimmed = str.trim();
   return trimmed.startsWith('cashuA') || trimmed.startsWith('cashuB');
 }
@@ -178,14 +168,54 @@ export function getTokenAmount(tokenStr: string): number | null {
 // ============================================================================
 
 /**
- * Detect token version from prefix
+ * Extract token info from decoded token
+ * Handles multiple token formats (V3, V4, raw V4)
  */
-function detectVersion(tokenStr: string): 3 | 4 | null {
-  if (tokenStr.startsWith('cashuA')) {
-    return 3;
+function extractTokenInfo(token: Token, original: string): TokenInfo {
+  const version: 3 | 4 = original.startsWith('cashuB') ? 4 : 3;
+  const tokenAny = token as any;
+  
+  // Modern format (both V3 decoded and V4) - has direct mint/proofs
+  if ('mint' in token && 'proofs' in token) {
+    const mint = tokenAny.mint;
+    const unit = tokenAny.unit;
+    const proofs = tokenAny.proofs || [];
+    const amount = proofs.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    
+    return { version, mint, unit, amount, proofCount: proofs.length };
   }
-  if (tokenStr.startsWith('cashuB')) {
-    return 4;
+  
+  // V4 raw format (with 't' array and 'm' mint)
+  if ('t' in token) {
+    const mint = tokenAny.m;
+    const unit = tokenAny.u;
+    const memo = tokenAny.d;
+    
+    // Sum up proofs from all token entries
+    let amount = 0;
+    let proofCount = 0;
+    for (const entry of tokenAny.t || []) {
+      for (const proof of entry.p || []) {
+        amount += proof.a || 0;
+        proofCount++;
+      }
+    }
+
+    return { version: 4, mint, unit, amount, proofCount, memo };
   }
-  return null;
+  
+  // V3 legacy format (with 'token' array)
+  const firstEntry = tokenAny.token?.[0];
+  const mint = firstEntry?.mint || '';
+  const proofs = firstEntry?.proofs || [];
+  const amount = proofs.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const memo = tokenAny.memo;
+
+  return { 
+    version: 3, 
+    mint, 
+    amount, 
+    proofCount: proofs.length,
+    memo,
+  };
 }
