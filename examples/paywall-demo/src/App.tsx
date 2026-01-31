@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { Wallet, LocalStorageAdapter } from '@wavlake/wallet';
 import { Nip60Adapter } from '@wavlake/nostr-wallet';
 import { PaywallClient } from '@wavlake/paywall-client';
@@ -24,16 +24,30 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
   const { signer, isLoggedIn } = useAuth();
   const { walletStorage } = useSettings();
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  
+  // Track current storage mode to avoid unnecessary recreations
+  const currentModeRef = useRef<string | null>(null);
+  const isCreatingRef = useRef(false);
 
   useEffect(() => {
+    // Determine effective storage mode
+    const canUseNostr = walletStorage === 'nostr' && isLoggedIn && ndk && connected && signer;
+    const effectiveMode = canUseNostr ? 'nostr' : 'local';
+    
+    // Skip if we're already using this mode or currently creating
+    if (currentModeRef.current === effectiveMode || isCreatingRef.current) {
+      return;
+    }
+
     const createWallet = async () => {
+      isCreatingRef.current = true;
       let storage;
 
-      if (walletStorage === 'nostr' && isLoggedIn && ndk && connected && signer) {
+      if (canUseNostr) {
         console.log('🔄 Using NIP-60 Nostr storage');
         storage = new Nip60Adapter({
-          ndk,
-          signer,
+          ndk: ndk!,
+          signer: signer!,
           mintUrl: MINT_URL,
           unit: 'usd',
         });
@@ -50,10 +64,15 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
       });
 
       await newWallet.load();
+      currentModeRef.current = effectiveMode;
+      isCreatingRef.current = false;
       setWallet(newWallet);
     };
 
-    createWallet().catch(console.error);
+    createWallet().catch((err) => {
+      console.error('Wallet creation failed:', err);
+      isCreatingRef.current = false;
+    });
   }, [walletStorage, isLoggedIn, ndk, connected, signer]);
 
   const client = useMemo(() => new PaywallClient({
