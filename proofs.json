@@ -1,28 +1,35 @@
-{
-  "mintUrl": "https://nutshell-staging-854568123236.us-central1.run.app",
-  "unit": "usd",
-  "keysetId": "00ad82d4e3acaf21",
-  "proofs": [
-    {
-      "amount": 8,
-      "C": "037bdcfb29692382bc56aa589087655c2c08086ee339fdb9dcdd17c7f589507fb7",
-      "id": "00ad82d4e3acaf21",
-      "secret": "1fe45f8c0cbe25010cc88be62087c5aadb371d168b0cb842e815b82990a5bb8c",
-      "dleq": {
-        "s": "c7ee721100257c398d769aeb35e7a54fc5f30eaa02780482716592838a42e9a8",
-        "e": "a76b9e17bb05df78ccdcb45d69b05b0a8ad0102255e1c32265be4e75a408b195",
-        "r": "1a7884f0160adbc5b09fb7c4ce67d8fc1d48efd346a6cfbb4444976e18118970"
-      }
+[
+  {
+    "amount": 8,
+    "C": "03db758bf718db93b2a446a444a6ad6e37cfee3f8687cccc565945d9a4b8d1663c",
+    "id": "00ad82d4e3acaf21",
+    "secret": "a9047d427f71281d50edd02a874d52659c0563301ce92bbc320cf24ed436c0dc",
+    "dleq": {
+      "s": "3aa477f944c1eff14b3cbb20decc74dda01534ddabd7d156a4bcf1d48df47aac",
+      "e": "ef3b4ba0c2a6a52111bfccafc0b5133ecfafcb93b7004393d05c052816f0394e",
+      "r": "736f0568da32679af42aea77af50ad782ef9018a10904aa7aa27e2f3b6784483"
     }
-  ],
-  "token": "cashuBo2FteDlodHRwczovL251dHNoZWxsLXN0YWdpbmctODU0NTY4MTIzMjM2LnVzLWNlbnRyYWwxLnJ1bi5hcHBhdWN1c2RhdIGiYWlIAK2C1OOsryFhcIKkYWEIYXN4QDFmZTQ1ZjhjMGNiZTI1MDEwY2M4OGJlNjIwODdjNWFhZGIzNzFkMTY4YjBjYjg0MmU4MTViODI5OTBhNWJiOGNhY1ghA3vc-ylpI4K8VqpYkIdlXCwICG7jOf253N0Xx_WJUH-3YWSjYWVYIKdrnhe7Bd94zNy0XWmwWwqK0BAiVeHDImW-TnWkCLGVYXNYIMfuchEAJXw5jXaa6zXnpU_F8w6qAngEgnFlkoOKQumoYXJYIBp4hPAWCtvFsJ-3xM5n2PwdSO_TRqbPu0REl24YEYlwpGFhAmFzeEBhYTI3MTk4OGY4ODY4OGRjZjZiMTU3NGViYzZiYjE4MmU1MmYyOTc4Y2Q5NjE2MzFlOTRmNDBkODdlN2Y1ZmJlYWNYIQOrRk5XR_avu20bhWUfc5yCnqO0IE8mV6xY37VQNMm15GFko2FlWCAY1KU0DowFN7oHhXTuuVlfFNqYLFErYw_F0LgCZ9I1fWFzWCBNljpQwUTtEBIk1Gv5FxNfy1q05Nyg8UY__tXlfmjPE2FyWCAvTJMvINLfbw4JH4DQ8YlB9tgM51AIsBzRopiXF_XLqA",
-  "mintedAt": "2026-01-29T23:24:11.562Z",
-  "spent": [
-    {
-      "amount": 2,
-      "track": "track-243a7aba-9d56-41a6-ae36-ee5bbb5d6089",
-      "title": "Calina",
-      "spentAt": "2026-01-29T23:24:47.987Z"
+  },
+  {
+    "amount": 2,
+    "C": "0398b3f174db7437b598204cc4c1122db544eebd68c0308c468ed6bb981655b4f5",
+    "id": "00ad82d4e3acaf21",
+    "secret": "c1dc115ce3db97b5922a23293a13707f863c6dcfceac09c5dff44d6a53bd3365",
+    "dleq": {
+      "s": "384dba6b100f1eecfd7e69eb33b0254a0547f666cb42ba0351dcc907bf33287b",
+      "e": "852e83a55121e2f1ff924dd711eda125138066e56e63ebc1c0276a96d6a4a7e3",
+      "r": "c828e8a612a0c6ffaf233267a52564579f109d1889c08f92f58a27394a67058c"
     }
-  ]
-}
+  },
+  {
+    "amount": 1,
+    "C": "03647bf899a325fe580ff66c8a09a2070116883d38d32e78d065c4a28b5e1533d5",
+    "id": "00ad82d4e3acaf21",
+    "secret": "b6250024622d4e1645559c3e830cf1bbd43843648f350e2256d4ce87ff4bc8a3",
+    "dleq": {
+      "s": "f4edb5aaf36dcec0e42aaab22488c3c4cb75a05b6c123e4f74aab7aed309ef51",
+      "e": "7edc0afb6f65a20131953061cd95b5badc25d17a8815d1fd6adc2614d76f168e",
+      "r": "7b67d6bdda0eb01cd37b1be11fc7aa0153b7d4a2de027721ed2b3799144d61d9"
+    }
+  }
+]
