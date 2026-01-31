@@ -1,0 +1,154 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 6am UTC to catch balance issues
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-pool:
+    name: Check Proof Pool
+    runs-on: ubuntu-latest
+    outputs:
+      balance: ${{ steps.status.outputs.balance }}
+      healthy: ${{ steps.status.outputs.healthy }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check pool balance
+        id: status
+        run: |
+          BALANCE=$(cat proofs.json | jq '[.[].amount] | add // 0')
+          echo "balance=$BALANCE" >> $GITHUB_OUTPUT
+          if [ "$BALANCE" -lt 20 ]; then
+            echo "healthy=false" >> $GITHUB_OUTPUT
+            echo "::warning::Proof pool balance is low: $BALANCE credits"
+          else
+            echo "healthy=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Pool balance: $BALANCE credits"
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run unit tests
+        run: npm run test:unit
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [check-pool, unit-tests]
+    if: needs.check-pool.outputs.healthy == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+      
+      - name: Report pool balance
+        if: always()
+        run: |
+          BALANCE=$(cat proofs.json | jq '[.[].amount] | add // 0')
+          echo "Remaining pool balance: $BALANCE credits"
+
+  e2e-skipped:
+    name: E2E Tests (Skipped - Low Balance)
+    runs-on: ubuntu-latest
+    needs: check-pool
+    if: needs.check-pool.outputs.healthy == 'false'
+    steps:
+      - name: Skip notification
+        run: |
+          echo "::error::E2E tests skipped due to low proof pool balance"
+          echo "Current balance: ${{ needs.check-pool.outputs.balance }} credits"
+          echo "Please refill the pool: npm run pool:refill"
+          exit 1
+
+  notify-low-balance:
+    name: Notify Low Balance
+    runs-on: ubuntu-latest
+    needs: check-pool
+    if: needs.check-pool.outputs.healthy == 'false' && github.event_name == 'schedule'
+    steps:
+      - name: Create Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🔴 E2E Test Pool Balance Low';
+            const body = `
+            ## Proof Pool Alert
+            
+            The E2E test proof pool balance is critically low.
+            
+            **Current Balance:** ${{ needs.check-pool.outputs.balance }} credits
+            **Threshold:** 20 credits
+            
+            ### To Refill:
+            
+            \`\`\`bash
+            cd web-client
+            npm run pool:refill
+            # Pay the Lightning invoice
+            npx tsx scripts/proof-pool-refill.ts --poll <quote-id> <amount>
+            git add proofs.json
+            git commit -m "refill: add test credits"
+            git push
+            \`\`\`
+            
+            E2E tests are currently being skipped.
+            `;
+            
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'test-pool'
+            });
+            
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['test-pool', 'automated']
+              });
+            }

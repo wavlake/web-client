@@ -26,7 +26,10 @@
     "snapshot:list": "npx tsx tests/e2e/snapshots/run-snapshot.ts list",
     "snapshot:compare": "npx tsx tests/e2e/snapshots/run-snapshot.ts compare",
     "snapshot:set-golden": "npx tsx tests/e2e/snapshots/run-snapshot.ts set-golden",
-    "snapshot:export": "npx tsx tests/e2e/snapshots/run-snapshot.ts export-csv"
+    "snapshot:export": "npx tsx tests/e2e/snapshots/run-snapshot.ts export-csv",
+    "pool:status": "npx tsx scripts/proof-pool-status.ts",
+    "pool:refill": "npx tsx scripts/proof-pool-status.ts --refill",
+    "pool:check": "npx tsx scripts/proof-pool-status.ts --ci"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^3.3.0",
