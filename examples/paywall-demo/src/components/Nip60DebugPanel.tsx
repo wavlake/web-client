@@ -10,6 +10,7 @@ interface TokenEvent {
   id: string;
   createdAt: Date;
   contentLength: number;
+  dTag?: string;
   decrypted?: {
     mint: string;
     unit: string;
@@ -49,6 +50,14 @@ export function Nip60DebugPanel() {
   const [relays, setRelays] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  
+  // Calculate NIP-60 balance from token events
+  const nip60Balance = tokenEvents.reduce((sum, evt) => {
+    return sum + (evt.decrypted?.totalAmount || 0);
+  }, 0);
+  
+  // Check if local and NIP-60 are in sync
+  const isInSync = balance === nip60Balance;
 
   // Fetch NIP-60 events from relay
   const fetchNip60Data = useCallback(async () => {
@@ -379,6 +388,33 @@ export function Nip60DebugPanel() {
         )}
       </div>
 
+      {/* Sync Status */}
+      <div className="debug-section sync-section">
+        <h3>🔄 Sync Status</h3>
+        <div className="sync-comparison">
+          <div className="sync-item">
+            <span className="sync-label">Local</span>
+            <span className="sync-value">{balance}</span>
+          </div>
+          <div className="sync-arrow">{isInSync ? '=' : '≠'}</div>
+          <div className="sync-item">
+            <span className="sync-label">NIP-60</span>
+            <span className="sync-value">{nip60Balance}</span>
+          </div>
+        </div>
+        <div className={`sync-status ${isInSync ? 'synced' : 'unsynced'}`}>
+          {isInSync ? '✅ In Sync' : '⚠️ Out of Sync'}
+        </div>
+        {!isInSync && (
+          <p className="sync-hint">
+            Difference: {Math.abs(balance - nip60Balance)} credits
+            {balance > nip60Balance 
+              ? ' (local has more - needs publish)' 
+              : ' (NIP-60 has more - needs load)'}
+          </p>
+        )}
+      </div>
+
       {/* Local Wallet State */}
       <div className="debug-section">
         <h3>💾 Local State</h3>
@@ -539,6 +575,57 @@ export function Nip60DebugPanel() {
           background: #a78bfa22;
           padding: 2px 8px;
           border-radius: 10px;
+        }
+        .sync-section {
+          background: rgba(167, 139, 250, 0.1);
+          border: 1px solid #a78bfa44;
+        }
+        .sync-comparison {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 16px;
+          margin: 12px 0;
+        }
+        .sync-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+        .sync-label {
+          font-size: 10px;
+          color: #888;
+          text-transform: uppercase;
+        }
+        .sync-value {
+          font-size: 20px;
+          font-weight: bold;
+          color: #fff;
+        }
+        .sync-arrow {
+          font-size: 24px;
+          color: #666;
+        }
+        .sync-status {
+          text-align: center;
+          padding: 8px;
+          border-radius: 4px;
+          font-weight: bold;
+        }
+        .sync-status.synced {
+          background: rgba(74, 222, 128, 0.1);
+          color: #4ade80;
+        }
+        .sync-status.unsynced {
+          background: rgba(251, 191, 36, 0.1);
+          color: #fbbf24;
+        }
+        .sync-hint {
+          text-align: center;
+          font-size: 10px;
+          color: #888;
+          margin-top: 8px;
         }
       `}</style>
         </>
