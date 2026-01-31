@@ -12,6 +12,12 @@
  *    - Discovery request (402) → payment with proofs
  *    - Multiple HTTP calls
  *    - Used when no pre-built tokens available
+ * 
+ * Identity Modes (for spending cap tracking):
+ * - none: Anonymous requests
+ * - nip98: NIP-98 Authorization header
+ * - urlTokenSig: URL param with Schnorr signature of token hash
+ * - urlTimestampSig: URL param with Schnorr signature of timestamp
  */
 
 import { useState, useCallback } from 'react';
@@ -20,6 +26,9 @@ import { CONFIG } from '../lib/config';
 import { debugLog } from '../stores/debug';
 import { useWalletStore } from '../stores/wallet';
 import { useTokenCacheStore } from '../stores/tokenCache';
+import { useSettingsStore } from '../stores/settings';
+import { signToken, signTimestamp, nsecToKeypair } from '../lib/identity';
+import { createNip98AuthEvent } from '../lib/nip98';
 import type { Track } from '../types/nostr';
 
 interface ContentAccessSuccess {
@@ -43,6 +52,68 @@ interface ContentAccessError {
 
 type ContentAccessResult = ContentAccessSuccess | ContentAccessPaymentRequired | ContentAccessError;
 
+/**
+ * Build URL with identity params for URL-based auth modes.
+ */
+function buildIdentityUrl(baseUrl: string, token: string | null): string {
+  const { identityMode, nsec } = useSettingsStore.getState();
+
+  if (identityMode === 'none' || identityMode === 'nip98' || !nsec) {
+    return baseUrl;
+  }
+
+  try {
+    const keypair = nsecToKeypair(nsec);
+    const url = new URL(baseUrl);
+
+    if (identityMode === 'urlTokenSig' && token) {
+      const { pubkey, sig } = signToken(token, keypair.privateKeyHex);
+      url.searchParams.set('pubkey', pubkey);
+      url.searchParams.set('sig', sig);
+      debugLog('event', `Added token signature identity: ${pubkey.slice(0, 8)}...`);
+    } else if (identityMode === 'urlTimestampSig') {
+      const { pubkey, sig, t } = signTimestamp(keypair.privateKeyHex);
+      url.searchParams.set('pubkey', pubkey);
+      url.searchParams.set('sig', sig);
+      url.searchParams.set('t', t.toString());
+      debugLog('event', `Added timestamp signature identity: ${pubkey.slice(0, 8)}...`);
+    }
+
+    return url.toString();
+  } catch (err) {
+    debugLog('error', `Failed to build identity URL: ${err}`);
+    return baseUrl;
+  }
+}
+
+/**
+ * Build headers with identity for NIP-98 auth mode.
+ */
+async function buildIdentityHeaders(
+  baseHeaders: Record<string, string>,
+  url: string,
+  method: string
+): Promise<Record<string, string>> {
+  const { identityMode, nsec } = useSettingsStore.getState();
+
+  if (identityMode !== 'nip98' || !nsec) {
+    return baseHeaders;
+  }
+
+  try {
+    const keypair = nsecToKeypair(nsec);
+    const nip98Token = await createNip98AuthEvent(keypair.privateKeyHex, url, method);
+    debugLog('event', `Added NIP-98 header: ${keypair.publicKeyHex.slice(0, 8)}...`);
+    return {
+      ...baseHeaders,
+      Authorization: `Nostr ${nip98Token}`,
+    };
+  } catch (err) {
+    debugLog('error', `Failed to create NIP-98 header: ${err}`);
+    return baseHeaders;
+  }
+}
+
 export function useContentAccess() {
   const [isLoading, setIsLoading] = useState(false);
   const [lastResult, setLastResult] = useState<ContentAccessResult | null>(null);
@@ -50,11 +121,17 @@ export function useContentAccess() {
   const checkAccess = useCallback(async (track: Track): Promise<ContentAccessResult> => {
     setIsLoading(true);
     
-    const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
-    debugLog('request', `GET ${url}`, { trackId: track.id, dTag: track.dTag });
+    const baseUrl = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+    const url = buildIdentityUrl(baseUrl, null);
+    const { identityMode } = useSettingsStore.getState();
+    
+    debugLog('request', `GET ${baseUrl}`, { trackId: track.id, dTag: track.dTag, identityMode });
 
     try {
-      const response = await fetch(url);
+      const headers = await buildIdentityHeaders({}, baseUrl, 'GET');
+      const response = await fetch(url, {
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+      });
       
       if (response.status === 402) {
         const data = await response.json();
@@ -121,7 +198,8 @@ export function useContentAccess() {
   ): Promise<ContentAccessResult> => {
     setIsLoading(true);
     
-    const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+    const baseUrl = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+    const { identityMode } = useSettingsStore.getState();
     
     // Log proof details before encoding
     debugLog('wallet', 'Preparing proofs for payment', {
@@ -142,6 +220,9 @@ export function useContentAccess() {
       unit: 'usd',
     });
     
+    // Build URL with identity params if using URL token signature mode
+    const url = buildIdentityUrl(baseUrl, token);
+    
     debugLog('wallet', 'Encoded Cashu token', {
       mintUrl: CONFIG.MINT_URL,
       unit: 'usd',
@@ -150,9 +231,10 @@ export function useContentAccess() {
     });
     
     const totalAmount = proofs.reduce((s, p) => s + p.amount, 0);
-    debugLog('request', `GET ${url} (with X-Ecash-Token)`, { 
+    debugLog('request', `GET ${baseUrl} (with X-Ecash-Token)`, { 
       trackId: track.id, 
       dTag: track.dTag,
+      identityMode,
       payment: {
         tokenAmount: totalAmount,
         trackPrice: track.metadata.price_credits,
@@ -164,11 +246,9 @@ export function useContentAccess() {
     });
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          'X-Ecash-Token': token,
-        },
-      });
+      // Build headers with token and optional NIP-98 auth
+      const headers = await buildIdentityHeaders({ 'X-Ecash-Token': token }, baseUrl, 'GET');
+      const response = await fetch(url, { headers });
 
       if (response.status === 402) {
         const data = await response.json();
@@ -259,11 +339,16 @@ export function useContentAccess() {
       return checkAccess(track);
     }
 
-    const url = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+    const baseUrl = `${CONFIG.API_BASE_URL}/api/v1/content/${track.dTag}`;
+    const { identityMode } = useSettingsStore.getState();
     
-    debugLog('request', `GET ${url} [SINGLE-REQUEST MODE]`, { 
+    // Build URL with identity params if using URL token signature mode
+    const url = buildIdentityUrl(baseUrl, cachedToken.token);
+    
+    debugLog('request', `GET ${baseUrl} [SINGLE-REQUEST MODE]`, { 
       trackId: track.id, 
       dTag: track.dTag,
+      identityMode,
       payment: {
         tokenAmount: cachedToken.amount,
         trackPrice: track.metadata.price_credits,
@@ -275,11 +360,9 @@ export function useContentAccess() {
     });
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          'X-Ecash-Token': cachedToken.token,
-        },
-      });
+      // Build headers with token and optional NIP-98 auth
+      const headers = await buildIdentityHeaders({ 'X-Ecash-Token': cachedToken.token }, baseUrl, 'GET');
+      const response = await fetch(url, { headers });
 
       const elapsed = performance.now() - startTime;
 

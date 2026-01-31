@@ -369,7 +369,58 @@ function SettingsPanel() {
   const toggleJitSwap = useSettingsStore((s) => s.toggleJitSwap);
   const walletStorageMode = useSettingsStore((s) => s.walletStorageMode);
   const toggleWalletStorageMode = useSettingsStore((s) => s.toggleWalletStorageMode);
+  const identityMode = useSettingsStore((s) => s.identityMode);
+  const setIdentityMode = useSettingsStore((s) => s.setIdentityMode);
+  const nsec = useSettingsStore((s) => s.nsec);
+  const setNsec = useSettingsStore((s) => s.setNsec);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn());
+
+  const [nsecInput, setNsecInput] = useState('');
+  const [nsecError, setNsecError] = useState<string | null>(null);
+
+  // Validate nsec format
+  const validateAndSetNsec = (value: string) => {
+    setNsecInput(value);
+    setNsecError(null);
+
+    if (!value || value === '') {
+      setNsec(null);
+      return;
+    }
+
+    if (value.startsWith('nsec1') && value.length >= 59) {
+      // Basic format check - full validation happens in identity.ts
+      try {
+        // Import dynamically to avoid circular deps
+        import('../lib/identity').then(({ isValidNsec }) => {
+          if (isValidNsec(value)) {
+            setNsec(value);
+            setNsecError(null);
+            debugLog('event', 'Identity nsec configured');
+          } else {
+            setNsecError('Invalid nsec');
+          }
+        });
+      } catch {
+        setNsecError('Invalid nsec format');
+      }
+    }
+  };
+
+  const clearNsec = () => {
+    setNsecInput('');
+    setNsec(null);
+    setNsecError(null);
+    setIdentityMode('none');
+  };
+
+  // Identity mode options
+  const identityModes = [
+    { value: 'none' as const, label: 'None', desc: 'Anonymous' },
+    { value: 'nip98' as const, label: 'NIP-98', desc: 'Header auth' },
+    { value: 'urlTokenSig' as const, label: 'URL Token', desc: 'Sign token' },
+    { value: 'urlTimestampSig' as const, label: 'URL Time', desc: 'Sign timestamp' },
+  ];
 
   return (
     <DebugPanel title="⚙️ Settings">
@@ -477,6 +528,93 @@ function SettingsPanel() {
               Single request, simplest flow.
             </>
           )}
+        </div>
+
+        <div className="border-t border-surface-light pt-3" />
+
+        {/* Identity Mode Section */}
+        <div>
+          <span className="text-xs text-white block mb-2">🔑 Identity (Spending Cap)</span>
+          
+          {/* Nsec Input */}
+          <div className="relative mb-2">
+            <input
+              type="password"
+              value={nsecInput}
+              onChange={(e) => validateAndSetNsec(e.target.value)}
+              placeholder="nsec1..."
+              className={`w-full px-2 py-1.5 text-xs font-mono bg-background border rounded text-white focus:outline-none pr-8 ${
+                nsecError ? 'border-red-500 focus:border-red-500' : 'border-surface-light focus:border-primary'
+              }`}
+            />
+            {nsec && (
+              <button
+                onClick={clearNsec}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-400 text-xs"
+                title="Clear nsec"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          
+          {nsecError && (
+            <div className="text-[10px] text-red-400 mb-2">{nsecError}</div>
+          )}
+          
+          {nsec && (
+            <div className="text-[10px] text-green-400 mb-2">✓ Nsec configured</div>
+          )}
+
+          {/* Identity Mode Selector */}
+          <div className="flex flex-wrap gap-1 mb-2">
+            {identityModes.map((mode) => {
+              const isDisabled = mode.value !== 'none' && !nsec;
+              const isActive = identityMode === mode.value;
+              return (
+                <button
+                  key={mode.value}
+                  onClick={() => !isDisabled && setIdentityMode(mode.value)}
+                  disabled={isDisabled}
+                  className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                    isActive
+                      ? 'bg-primary text-white'
+                      : isDisabled
+                      ? 'bg-surface-light text-gray-600 cursor-not-allowed'
+                      : 'bg-surface-light text-gray-300 hover:bg-surface hover:text-white'
+                  }`}
+                  title={isDisabled ? 'Configure nsec first' : mode.desc}
+                >
+                  {mode.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Identity Mode Info */}
+          <div className="text-[10px] text-gray-500 p-2 bg-surface rounded">
+            {identityMode === 'none' ? (
+              <>
+                <span className="text-gray-400">ANONYMOUS:</span> No identity attached.
+                Spending caps disabled.
+              </>
+            ) : identityMode === 'nip98' ? (
+              <>
+                <span className="text-blue-400">NIP-98:</span> Authorization header with signed event.
+                Works with fetch() requests.
+              </>
+            ) : identityMode === 'urlTokenSig' ? (
+              <>
+                <span className="text-green-400">URL TOKEN SIG:</span> Signs SHA256(token).
+                For native &lt;audio&gt; with payment.
+              </>
+            ) : (
+              <>
+                <span className="text-orange-400">URL TIMESTAMP SIG:</span> Signs SHA256(timestamp).
+                For free/cap-check requests.
+              </>
+            )}
+          </div>
         </div>
       </div>
     </DebugPanel>
