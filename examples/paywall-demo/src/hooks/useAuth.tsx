@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { NDKNip07Signer, NDKPrivateKeySigner } from '@nostr-dev-kit/ndk';
 import type { NDKSigner } from '@nostr-dev-kit/ndk';
+import { bech32 } from '@scure/base';
 import { useNDK } from '../lib/ndk';
 
 type AuthMethod = 'nip07' | 'nsec' | null;
@@ -23,13 +24,12 @@ const STORAGE_KEY = 'paywall-demo-auth';
 function decodeNsec(nsec: string): string | null {
   try {
     if (!nsec.startsWith('nsec1')) return null;
-    // Dynamic import to avoid bundling issues
-    const { bech32 } = require('@scure/base');
-    const { prefix, words } = bech32.decode(nsec, 1500);
-    if (prefix !== 'nsec') return null;
-    const bytes = bech32.fromWords(words);
-    return Array.from(new Uint8Array(bytes)).map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch {
+    const decoded = bech32.decode(nsec as `nsec1${string}`, 1500);
+    if (decoded.prefix !== 'nsec') return null;
+    const bytes = bech32.fromWords(decoded.words);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.error('nsec decode error:', e);
     return null;
   }
 }
