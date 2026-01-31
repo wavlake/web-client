@@ -249,3 +249,102 @@ export async function getArtistStreams(
     return { ok: false, status: response.status, error: json.error };
   }
 }
+
+// ============================================================================
+// Phase 5: URL Token Parameter & Change Recovery
+// ============================================================================
+
+/**
+ * Request audio with URL token parameter (Phase 5)
+ * 
+ * Uses ?token= query parameter instead of X-Ecash-Token header.
+ * This enables native HTML audio element usage:
+ *   <audio src="/v1/audio/track?token=cashuB...">
+ * 
+ * @param dtag - Track d-tag
+ * @param token - Cashu token for payment (sent via URL)
+ * @param options - Additional options including payment-id for change recovery
+ */
+export async function requestAudioWithUrlToken(
+  dtag: string,
+  token?: string,
+  options?: {
+    paymentId?: string;
+    nip98Nsec?: string;
+  }
+): Promise<{
+  ok: boolean;
+  status: number;
+  contentType?: string;
+  contentLength?: number;
+  // Change is stored for retrieval via /v1/change/{payment-id} when using URL tokens
+  error?: {
+    code: string;
+    message: string;
+    details?: { required?: number; provided?: number; mint_url?: string };
+  };
+}> {
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (options?.paymentId) params.set('payment-id', options.paymentId);
+  
+  const url = `${apiUrl}/api/v1/audio/${dtag}?${params}`;
+  const headers: Record<string, string> = {};
+  
+  if (options?.nip98Nsec) {
+    // For URL-based auth, the signed URL should NOT include the auth param
+    const signedUrl = `${apiUrl}/api/v1/audio/${dtag}`;
+    headers['Authorization'] = createNip98Auth(signedUrl, 'GET', options.nip98Nsec);
+  }
+  
+  const response = await fetch(url, { headers });
+  
+  if (response.ok) {
+    return {
+      ok: true,
+      status: response.status,
+      contentType: response.headers.get('content-type') || undefined,
+      contentLength: parseInt(response.headers.get('content-length') || '0'),
+    };
+  } else {
+    const json = await response.json();
+    return { ok: false, status: response.status, error: json.error };
+  }
+}
+
+/**
+ * Claim change from a URL-based audio payment (Phase 5)
+ * 
+ * After making a payment with ?payment-id=, call this endpoint
+ * to retrieve any change tokens.
+ * 
+ * @param paymentId - The payment ID used in the audio request
+ */
+export async function claimChange(paymentId: string): Promise<{
+  ok: boolean;
+  status: number;
+  data?: {
+    payment_id: string;
+    change_token: string | null;
+    change_amount: number | null;
+  };
+  error?: { code: string; message: string };
+}> {
+  const url = `${apiUrl}/api/v1/change/${paymentId}`;
+  
+  const response = await fetch(url);
+  const json = await response.json();
+  
+  if (response.ok) {
+    return { ok: true, status: response.status, data: json };
+  } else {
+    return { ok: false, status: response.status, error: json.error };
+  }
+}
+
+/**
+ * Generate a unique payment ID for change recovery
+ */
+export function generatePaymentId(): string {
+  return crypto.randomUUID();
+}
