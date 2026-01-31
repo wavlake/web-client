@@ -6,6 +6,7 @@ interface Track {
   title: string;
   artist: string;
   price: number;
+  artwork?: string;
 }
 
 interface PlayerContextValue {

@@ -1,79 +1,86 @@
-import { useState } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
+import { useTracks } from '../hooks/useTracks';
 import { useWallet } from '@wavlake/paywall-react';
+import type { Track } from '../types';
 
 export function TrackList() {
   const { balance, isReady } = useWallet();
-  const { play, currentTrack, isLoading, error } = usePlayer();
-  
-  // Custom track input
-  const [customDtag, setCustomDtag] = useState('');
-  const [customPrice, setCustomPrice] = useState('1');
+  const { play, currentTrack, isLoading } = usePlayer();
+  const { tracks, loading, error } = useTracks({ limit: 20 });
 
-  const handlePlayCustom = () => {
-    if (!customDtag.trim()) return;
-    
-    const track = {
-      dtag: customDtag.trim(),
-      title: `Track: ${customDtag.substring(0, 8)}...`,
-      artist: 'Unknown',
-      price: parseInt(customPrice, 10) || 1,
-    };
-    
-    play(track);
+  const handlePlay = (track: Track) => {
+    const price = track.metadata.price_credits || 1;
+    play({
+      dtag: track.dTag,
+      title: track.metadata.title,
+      artist: track.metadata.artist,
+      price,
+      artwork: track.metadata.artwork_url,
+    });
   };
-
-  const canAffordCustom = isReady && balance >= (parseInt(customPrice, 10) || 1);
 
   return (
     <section className="panel track-list">
-      <h2>🎵 Play Track</h2>
+      <h2>🎵 Tracks</h2>
       
       {error && (
         <p className="message error">{error.message}</p>
       )}
 
-      <div className="custom-track-form">
-        <input
-          type="text"
-          placeholder="Track d-tag (UUID)"
-          value={customDtag}
-          onChange={(e) => setCustomDtag(e.target.value)}
-          disabled={isLoading}
-          className="dtag-input"
-        />
-        <div className="price-row">
-          <label>
-            Price:
-            <input
-              type="number"
-              min="1"
-              value={customPrice}
-              onChange={(e) => setCustomPrice(e.target.value)}
-              disabled={isLoading}
-              className="price-input"
-            />
-            credits
-          </label>
-          <button
-            onClick={handlePlayCustom}
-            disabled={isLoading || !canAffordCustom || !customDtag.trim()}
-            className="play-btn"
-          >
-            {isLoading ? '⏳ Loading...' : '▶️ Play'}
-          </button>
-        </div>
-      </div>
-
-      {currentTrack && (
-        <div className="now-playing-info">
-          <span>Now playing: {currentTrack.dtag}</span>
-        </div>
+      {loading && tracks.length === 0 && (
+        <p className="hint">Loading tracks from Nostr...</p>
       )}
 
+      {!loading && tracks.length === 0 && (
+        <p className="hint">No tracks found</p>
+      )}
+
+      <ul>
+        {tracks.map((track) => {
+          const price = track.metadata.price_credits || 1;
+          const isPaywalled = track.metadata.access_mode === 'paywall';
+          const isPlaying = currentTrack?.dtag === track.dTag;
+          const canAfford = isReady && balance >= price;
+          
+          return (
+            <li key={track.id} className={isPlaying ? 'playing' : ''}>
+              <div className="track-row">
+                {track.metadata.artwork_url && (
+                  <img 
+                    src={track.metadata.artwork_url} 
+                    alt={track.metadata.title}
+                    className="track-artwork"
+                  />
+                )}
+                <div className="track-info">
+                  <span className="track-title">{track.metadata.title}</span>
+                  <span className="track-artist">{track.metadata.artist}</span>
+                </div>
+                <div className="track-actions">
+                  {isPaywalled && (
+                    <span className="track-price">{price}¢</span>
+                  )}
+                  <button
+                    onClick={() => handlePlay(track)}
+                    disabled={isLoading || (isPaywalled && !canAfford)}
+                    className={isPlaying ? 'playing' : ''}
+                  >
+                    {isLoading && currentTrack?.dtag === track.dTag
+                      ? '⏳'
+                      : isPlaying
+                      ? '🔊'
+                      : '▶️'}
+                  </button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
       {!isReady && <p className="hint">Loading wallet...</p>}
-      {isReady && balance === 0 && (
-        <p className="hint">Add funds to your wallet to play tracks</p>
+      {isReady && balance === 0 && tracks.some(t => t.metadata.access_mode === 'paywall') && (
+        <p className="hint">Add funds to play paywalled tracks</p>
       )}
     </section>
   );

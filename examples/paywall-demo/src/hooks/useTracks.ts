@@ -1,0 +1,60 @@
+import { useState, useEffect } from 'react';
+import type { NDKFilter } from '@nostr-dev-kit/ndk';
+import { useNDK } from '../lib/ndk';
+import { parseTrackEvent } from '../lib/parsers';
+import type { Track } from '../types';
+
+const TRACK_KIND = 30440;
+
+interface UseTracksOptions {
+  limit?: number;
+}
+
+export function useTracks(options: UseTracksOptions = {}) {
+  const { limit = 50 } = options;
+  const { ndk, connected } = useNDK();
+  
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!ndk || !connected) return;
+
+    const filter: NDKFilter = {
+      kinds: [TRACK_KIND as number],
+      limit,
+    };
+
+    setLoading(true);
+    setError(null);
+
+    const subscription = ndk.subscribe(filter, { closeOnEose: false });
+    const trackMap = new Map<string, Track>();
+
+    subscription.on('event', (event) => {
+      const track = parseTrackEvent(event);
+      if (track) {
+        trackMap.set(track.dTag, track);
+        const sortedTracks = Array.from(trackMap.values())
+          .sort((a, b) => b.createdAt - a.createdAt);
+        setTracks(sortedTracks);
+      }
+    });
+
+    subscription.on('eose', () => {
+      setLoading(false);
+    });
+
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+
+    return () => {
+      subscription.stop();
+      clearTimeout(timeout);
+    };
+  }, [ndk, connected, limit]);
+
+  return { tracks, loading, error };
+}
