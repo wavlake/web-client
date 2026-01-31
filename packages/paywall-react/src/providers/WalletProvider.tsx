@@ -116,26 +116,33 @@ export function WalletProvider({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  // Load wallet on mount (client-side only)
+  // Load wallet on mount or when wallet changes
   useEffect(() => {
     if (!autoLoad) return;
 
     let mounted = true;
+    const currentWallet = wallet;
 
     const loadWallet = async () => {
       try {
         setIsLoading(true);
-        await walletRef.current.load();
+        setIsReady(false);
+        
+        // Only load if not already loaded
+        if (!currentWallet.isLoaded) {
+          await currentWallet.load();
+        }
         
         if (mounted) {
-          setBalance(walletRef.current.balance);
-          setProofs(walletRef.current.proofs);
+          setBalance(currentWallet.balance);
+          setProofs(currentWallet.proofs);
           setIsReady(true);
           setError(null);
         }
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err : new Error(String(err)));
+          setIsReady(true); // Mark ready even on error so UI isn't stuck
         }
       } finally {
         if (mounted) {
@@ -149,10 +156,12 @@ export function WalletProvider({
     return () => {
       mounted = false;
     };
-  }, [autoLoad]);
+  }, [autoLoad, wallet]);
 
-  // Subscribe to wallet events
+  // Subscribe to wallet events - re-subscribe when wallet changes
   useEffect(() => {
+    const currentWallet = wallet;
+    
     const handleBalanceChange = (newBalance: number) => {
       setBalance(newBalance);
     };
@@ -165,16 +174,22 @@ export function WalletProvider({
       setError(err);
     };
 
-    walletRef.current.on('balance-change', handleBalanceChange);
-    walletRef.current.on('proofs-change', handleProofsChange);
-    walletRef.current.on('error', handleError);
+    currentWallet.on('balance-change', handleBalanceChange);
+    currentWallet.on('proofs-change', handleProofsChange);
+    currentWallet.on('error', handleError);
+
+    // Sync state when wallet changes
+    if (currentWallet.isLoaded) {
+      setBalance(currentWallet.balance);
+      setProofs(currentWallet.proofs);
+    }
 
     return () => {
-      walletRef.current.off('balance-change', handleBalanceChange);
-      walletRef.current.off('proofs-change', handleProofsChange);
-      walletRef.current.off('error', handleError);
+      currentWallet.off('balance-change', handleBalanceChange);
+      currentWallet.off('proofs-change', handleProofsChange);
+      currentWallet.off('error', handleError);
     };
-  }, []);
+  }, [wallet]);
 
   // Actions
   const createToken = useCallback(async (amount: number) => {

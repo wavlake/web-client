@@ -48,6 +48,23 @@ export function DebugPanel() {
     setLogs([]);
   };
 
+  const handleCopy = async () => {
+    const logText = logs.map(log => {
+      const time = formatTime(log.timestamp);
+      const data = log.data && Object.keys(log.data).length > 0 
+        ? JSON.stringify(log.data) 
+        : '';
+      return `${time}[${log.category}:${log.level}]${log.message}${data ? ' ' + data : ''}`;
+    }).join('\n');
+    
+    try {
+      await navigator.clipboard.writeText(logText);
+      alert('Logs copied to clipboard!');
+    } catch (e) {
+      console.error('Failed to copy:', e);
+    }
+  };
+
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -73,6 +90,7 @@ export function DebugPanel() {
       <div className="debug-header">
         <h2>🔍 Debug Logs</h2>
         <div className="debug-actions">
+          <button onClick={handleCopy}>📋 Copy</button>
           <button onClick={handleClear}>Clear</button>
           <button onClick={() => setIsOpen(false)}>Close</button>
         </div>
