@@ -1,0 +1,284 @@
+/* App Layout */
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+header {
+  text-align: center;
+  padding: 20px 0;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  color: #888;
+  margin: 8px 0 0;
+}
+
+/* Panel Base */
+.panel {
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+}
+
+/* Wallet Panel */
+.wallet-panel .balance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.balance-amount {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #fbbf24;
+}
+
+.balance-label {
+  font-size: 1rem;
+  color: #888;
+}
+
+.receive-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.receive-form input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #fafafa;
+  font-size: 0.9rem;
+}
+
+.receive-form input:focus {
+  outline: none;
+  border-color: #fbbf24;
+}
+
+.receive-form button {
+  padding: 10px 20px;
+  background: #fbbf24;
+  color: #0a0a0a;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.receive-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.receive-form button:hover:not(:disabled) {
+  background: #f59e0b;
+}
+
+.clear-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: #888;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.clear-btn:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.clear-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Messages */
+.message {
+  padding: 10px 14px;
+  border-radius: 6px;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+.message.success {
+  background: #064e3b;
+  color: #34d399;
+}
+
+.message.error {
+  background: #450a0a;
+  color: #f87171;
+}
+
+.loading {
+  color: #888;
+}
+
+.hint {
+  color: #666;
+  font-size: 0.9rem;
+  margin-top: 12px;
+}
+
+/* Track List / Custom Track Form */
+.custom-track-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dtag-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #fafafa;
+  font-size: 0.95rem;
+  font-family: monospace;
+}
+
+.dtag-input:focus {
+  outline: none;
+  border-color: #fbbf24;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.price-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #888;
+}
+
+.price-input {
+  width: 60px;
+  padding: 8px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #0a0a0a;
+  color: #fafafa;
+  text-align: center;
+}
+
+.price-input:focus {
+  outline: none;
+  border-color: #fbbf24;
+}
+
+.play-btn {
+  padding: 12px 24px;
+  background: #fbbf24;
+  color: #0a0a0a;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.play-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.play-btn:hover:not(:disabled) {
+  background: #f59e0b;
+}
+
+.now-playing-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: #2d2b1a;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #fbbf24;
+}
+
+/* Player */
+.player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.now-playing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+}
+
+.now-playing .label {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.now-playing .track-title {
+  font-weight: 500;
+}
+
+.now-playing .track-artist {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.audio-element {
+  flex: 1;
+  height: 40px;
+}
+
+.stop-btn {
+  padding: 10px 16px;
+  background: #333;
+  border: none;
+  border-radius: 6px;
+  color: #fafafa;
+  cursor: pointer;
+}
+
+.stop-btn:hover {
+  background: #444;
+}
+
+/* Add bottom padding for fixed player */
+.app {
+  padding-bottom: 100px;
+}
