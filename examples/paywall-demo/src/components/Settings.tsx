@@ -11,6 +11,7 @@ const DESCRIPTIONS = {
 export function Settings() {
   const { endpoint, setEndpoint, walletStorage, setWalletStorage } = useSettings();
   const { pubkey, isLoggedIn, loginWithNip07, loginWithNsec, logout } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [showNsecInput, setShowNsecInput] = useState(false);
   const [nsecInput, setNsecInput] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -37,8 +38,13 @@ export function Settings() {
 
   return (
     <section className="panel settings-panel">
-      <h2>⚙️ Settings</h2>
+      <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span>{isCollapsed ? '▶' : '▼'} ⚙️ Settings</span>
+        <span className="header-badge">{walletStorage === 'nostr' ? '☁️' : '💾'} {isLoggedIn ? '🔑' : ''}</span>
+      </h2>
       
+      {isCollapsed ? null : (
+      <>
       {/* Auth Section */}
       <div className="setting-row">
         <label>Nostr Account:</label>
@@ -128,6 +134,8 @@ export function Settings() {
       <p className="setting-description">
         {DESCRIPTIONS[endpoint]}
       </p>
+      </>
+      )}
     </section>
   );
 }

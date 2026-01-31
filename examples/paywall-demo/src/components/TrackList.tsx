@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { usePlayer } from '../hooks/usePlayer';
 import { useTracks } from '../hooks/useTracks';
 import { useWallet } from '@wavlake/paywall-react';
@@ -7,6 +8,7 @@ export function TrackList() {
   const { balance, isReady } = useWallet();
   const { play, currentTrack, isLoading } = usePlayer();
   const { tracks, loading, error } = useTracks({ limit: 20 });
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handlePlay = (track: Track) => {
     const price = track.metadata.price_credits || 1;
@@ -21,8 +23,13 @@ export function TrackList() {
 
   return (
     <section className="panel track-list">
-      <h2>🎵 Tracks</h2>
+      <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span>{isCollapsed ? '▶' : '▼'} 🎵 Tracks</span>
+        <span className="header-badge">{tracks.length} tracks</span>
+      </h2>
       
+      {isCollapsed ? null : (
+      <>
       {error && (
         <p className="message error">{error.message}</p>
       )}
@@ -81,6 +88,8 @@ export function TrackList() {
       {!isReady && <p className="hint">Loading wallet...</p>}
       {isReady && balance === 0 && tracks.some(t => t.metadata.access_mode === 'paywall') && (
         <p className="hint">Add funds to play paywalled tracks</p>
+      )}
+      </>
       )}
     </section>
   );

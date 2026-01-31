@@ -928,3 +928,32 @@ header h1 {
     font-size: 0.8rem;
   }
 }
+
+/* Collapsible panels */
+.collapsible-header {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  margin-bottom: 0;
+}
+
+.collapsible-header:hover {
+  opacity: 0.8;
+}
+
+.header-badge {
+  font-size: 0.7rem;
+  font-weight: normal;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.header-balance {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #4ade80;
+}

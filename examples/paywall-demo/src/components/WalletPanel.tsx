@@ -21,6 +21,9 @@ export function WalletPanel() {
     clear 
   } = useWallet();
   
+  // Collapsed state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
   // Token paste input
   const [tokenInput, setTokenInput] = useState('');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -128,16 +131,20 @@ export function WalletPanel() {
   if (!isReady) {
     return (
       <section className="panel wallet-panel">
-        <h2>💰 Wallet</h2>
-        <p className="loading">Loading wallet...</p>
+        <h2 className="collapsible-header">💰 Wallet <span className="header-badge">loading...</span></h2>
       </section>
     );
   }
 
   return (
     <section className="panel wallet-panel">
-      <h2>💰 Wallet</h2>
+      <h2 className="collapsible-header" onClick={() => setIsCollapsed(!isCollapsed)}>
+        <span>{isCollapsed ? '▶' : '▼'} 💰 Wallet</span>
+        <span className="header-balance">{balance} credits</span>
+      </h2>
       
+      {isCollapsed ? null : (
+      <>
       <div className="balance">
         <span className="balance-amount">{balance}</span>
         <span className="balance-label">credits</span>
@@ -232,6 +239,8 @@ export function WalletPanel() {
       <button className="clear-btn" onClick={handleClear} disabled={isLoading || balance === 0}>
         Clear Wallet
       </button>
+      </>
+      )}
     </section>
   );
 }
