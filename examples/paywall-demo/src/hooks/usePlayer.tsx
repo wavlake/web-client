@@ -69,8 +69,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         console.log('Content result:', result);
         url = result.url;
         change = result.change;
-      } else {
-        // Use /api/v1/audio - Direct binary stream
+      } else if (endpoint === 'audio') {
+        // Use /api/v1/audio - Direct binary stream via header
         console.log(`[audio] Requesting audio for ${track.dtag}...`);
         const result = await paywall.requestAudio(track.dtag, token);
         console.log('Audio result: blob received, size:', result.audio.size);
@@ -80,6 +80,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         url = URL.createObjectURL(result.audio);
         blobUrlRef.current = url;
         change = result.change;
+      } else {
+        // Use /api/v1/audio?token= - URL param for native <audio>
+        console.log(`[audio-url] Getting URL with token for ${track.dtag}...`);
+        url = paywall.getAudioUrl(track.dtag, token);
+        console.log('Audio URL:', url.substring(0, 80) + '...');
+        // No change handling with URL approach - server returns audio directly
       }
 
       // Handle change if any

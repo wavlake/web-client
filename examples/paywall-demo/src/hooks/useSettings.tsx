@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
-export type EndpointType = 'content' | 'audio';
+export type EndpointType = 'content' | 'audio' | 'audio-url';
 
 interface SettingsContextValue {
   endpoint: EndpointType;

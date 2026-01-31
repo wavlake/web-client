@@ -1,5 +1,11 @@
 import { useSettings } from '../hooks/useSettings';
 
+const DESCRIPTIONS = {
+  'content': '📄 /content → JSON with signed URL + grant replay (2 requests)',
+  'audio': '🎵 /audio → Direct binary stream via header token (1 request)',
+  'audio-url': '🔗 /audio?token= → URL param token for native <audio> element',
+};
+
 export function Settings() {
   const { endpoint, setEndpoint } = useSettings();
 
@@ -8,7 +14,7 @@ export function Settings() {
       <h2>⚙️ Settings</h2>
       
       <div className="setting-row">
-        <label>API Endpoint:</label>
+        <label>Payment Method:</label>
         <div className="toggle-group">
           <button 
             className={endpoint === 'content' ? 'active' : ''}
@@ -22,13 +28,17 @@ export function Settings() {
           >
             /audio
           </button>
+          <button 
+            className={endpoint === 'audio-url' ? 'active' : ''}
+            onClick={() => setEndpoint('audio-url')}
+          >
+            URL token
+          </button>
         </div>
       </div>
       
       <p className="setting-description">
-        {endpoint === 'content' 
-          ? '📄 JSON response with signed URL + grant replay support'
-          : '🎵 Direct binary audio stream (simpler, no grants)'}
+        {DESCRIPTIONS[endpoint]}
       </p>
     </section>
   );
