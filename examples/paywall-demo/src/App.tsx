@@ -11,6 +11,7 @@ import { TrackList } from './components/TrackList';
 import { Player } from './components/Player';
 import { Settings } from './components/Settings';
 import { DebugPanel } from './components/DebugPanel';
+import { Nip60DebugPanel } from './components/Nip60DebugPanel';
 import { PlayerProvider } from './hooks/usePlayer';
 import './styles.css';
 
@@ -82,6 +83,7 @@ function AppContent() {
 
       <WalletPanel />
       <Settings />
+      <Nip60DebugPanel />
       <TrackList />
       <DebugPanel />
       <Player />
