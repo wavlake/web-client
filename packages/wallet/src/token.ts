@@ -6,6 +6,10 @@
 
 import { getDecodedToken, type Token } from '@cashu/cashu-ts';
 
+// ============================================================================
+// Types
+// ============================================================================
+
 /**
  * Token info extracted from a cashu token
  */
@@ -36,8 +40,15 @@ export interface TokenValidation {
   info?: TokenInfo;
 }
 
+// ============================================================================
+// Functions
+// ============================================================================
+
 /**
  * Parse and validate a Cashu token string
+ * 
+ * @param tokenStr - Cashu token string (cashuA or cashuB format)
+ * @returns Validation result with token info if valid
  * 
  * @example
  * ```ts
@@ -78,6 +89,20 @@ export function validateToken(tokenStr: string): TokenValidation {
 /**
  * Parse a token without validation (for quick inspection)
  * Throws if token is invalid.
+ * 
+ * @param tokenStr - Cashu token string
+ * @returns Token information
+ * @throws Error if token cannot be parsed
+ * 
+ * @example
+ * ```ts
+ * try {
+ *   const info = parseToken('cashuBpXh...');
+ *   console.log('Mint:', info.mint);
+ * } catch (err) {
+ *   console.error('Invalid token');
+ * }
+ * ```
  */
 export function parseToken(tokenStr: string): TokenInfo {
   const result = validateToken(tokenStr);
@@ -90,6 +115,17 @@ export function parseToken(tokenStr: string): TokenInfo {
 /**
  * Check if a string looks like a Cashu token
  * (Quick check without full validation)
+ * 
+ * @param str - String to check
+ * @returns true if the string starts with cashuA or cashuB
+ * 
+ * @example
+ * ```ts
+ * if (looksLikeToken(userInput)) {
+ *   const result = validateToken(userInput);
+ *   // ...
+ * }
+ * ```
  */
 export function looksLikeToken(str: string): boolean {
   if (!str || typeof str !== 'string') return false;
@@ -99,6 +135,9 @@ export function looksLikeToken(str: string): boolean {
 
 /**
  * Get the mint URL from a token string
+ * 
+ * @param tokenStr - Cashu token string
+ * @returns Mint URL or null if token is invalid
  */
 export function getTokenMint(tokenStr: string): string | null {
   try {
@@ -111,6 +150,9 @@ export function getTokenMint(tokenStr: string): string | null {
 
 /**
  * Get the amount from a token string
+ * 
+ * @param tokenStr - Cashu token string
+ * @returns Total amount in the token or null if invalid
  */
 export function getTokenAmount(tokenStr: string): number | null {
   try {
@@ -121,8 +163,13 @@ export function getTokenAmount(tokenStr: string): number | null {
   }
 }
 
+// ============================================================================
+// Helpers
+// ============================================================================
+
 /**
  * Extract token info from decoded token
+ * Handles multiple token formats (V3, V4, raw V4)
  */
 function extractTokenInfo(token: Token, original: string): TokenInfo {
   const version: 3 | 4 = original.startsWith('cashuB') ? 4 : 3;
