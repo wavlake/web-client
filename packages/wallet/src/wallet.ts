@@ -16,6 +16,7 @@ import type {
 import type { StorageAdapter } from './storage/interface.js';
 import { smallestFirst } from './selectors/smallest.js';
 import { checkProofState } from './checkstate.js';
+import { createLogger, type Logger } from './logger.js';
 
 /**
  * Cashu wallet with state management.
@@ -43,9 +44,10 @@ import { checkProofState } from './checkstate.js';
  * ```
  */
 export class Wallet {
-  private readonly config: Required<WalletConfig>;
+  private readonly config: WalletConfig & { proofSelector: typeof smallestFirst; autoReceiveChange: boolean; unit: string };
   private readonly mint: Mint;
   private readonly cashuWallet: CashuWallet;
+  private readonly log: Logger;
   private _proofs: Proof[] = [];
   private _loaded = false;
   private eventHandlers: Map<WalletEventType, Set<Function>> = new Map();
@@ -58,8 +60,14 @@ export class Wallet {
       unit: config.unit ?? 'usd',
     };
 
+    this.log = createLogger(config.debug);
     this.mint = new Mint(this.config.mintUrl);
     this.cashuWallet = new CashuWallet(this.mint, { unit: this.config.unit });
+
+    this.log.info('Wallet initialized', { 
+      mintUrl: this.config.mintUrl, 
+      unit: this.config.unit,
+    });
   }
 
   // ===========================================================================
@@ -110,13 +118,20 @@ export class Wallet {
    * Call this once on app startup.
    */
   async load(): Promise<void> {
+    this.log.debug('Loading wallet...');
     try {
       await this.cashuWallet.loadMint();
       this._proofs = await this.config.storage.load();
       this._loaded = true;
+      this.log.info('Wallet loaded', { 
+        proofCount: this._proofs.length, 
+        balance: this.balance,
+        proofAmounts: this._proofs.map(p => p.amount),
+      });
       this.emit('proofs-change', this._proofs);
       this.emit('balance-change', this.balance);
     } catch (error) {
+      this.log.error('Failed to load wallet', { error: String(error) });
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -127,9 +142,12 @@ export class Wallet {
    * Called automatically after proof changes if autoReceiveChange is true.
    */
   async save(): Promise<void> {
+    this.log.debug('Saving wallet', { proofCount: this._proofs.length, balance: this.balance });
     try {
       await this.config.storage.save(this._proofs);
+      this.log.debug('Wallet saved');
     } catch (error) {
+      this.log.error('Failed to save wallet', { error: String(error) });
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -139,10 +157,12 @@ export class Wallet {
    * Clear all proofs from wallet and storage.
    */
   async clear(): Promise<void> {
+    this.log.info('Clearing wallet', { previousBalance: this.balance });
     this._proofs = [];
     await this.config.storage.clear();
     this.emit('proofs-change', this._proofs);
     this.emit('balance-change', 0);
+    this.log.info('Wallet cleared');
   }
 
   // ===========================================================================
@@ -157,39 +177,61 @@ export class Wallet {
    * @throws Error if insufficient balance
    */
   async createToken(amount: number): Promise<string> {
+    this.log.info('Creating token', { amount, currentBalance: this.balance });
+
     if (amount <= 0) {
+      this.log.error('Invalid amount', { amount });
       throw new Error('Amount must be positive');
     }
 
     if (this.balance < amount) {
+      this.log.error('Insufficient balance', { needed: amount, have: this.balance });
       throw new Error(`Insufficient balance: need ${amount}, have ${this.balance}`);
     }
 
     // Select proofs
     const selected = this.config.proofSelector(this._proofs, amount);
     if (!selected) {
+      this.log.error('Could not select proofs', { amount, availableProofs: this._proofs.map(p => p.amount) });
       throw new Error(`Could not select proofs for amount ${amount}`);
     }
 
     const selectedTotal = selected.reduce((sum, p) => sum + p.amount, 0);
+    this.log.debug('Proofs selected', { 
+      selectedCount: selected.length, 
+      selectedAmounts: selected.map(p => p.amount),
+      selectedTotal,
+      needsSwap: selectedTotal !== amount,
+    });
 
     // If exact match, just encode the selected proofs
     if (selectedTotal === amount) {
+      this.log.debug('Exact match - no swap needed');
       // Remove selected proofs
       this._proofs = this._proofs.filter(p => !selected.includes(p));
       await this.save();
       this.emit('proofs-change', this._proofs);
       this.emit('balance-change', this.balance);
 
-      return getEncodedTokenV4({
+      const token = getEncodedTokenV4({
         mint: this.config.mintUrl,
         proofs: selected,
         unit: this.config.unit,
       });
+      this.log.info('Token created (exact)', { amount, newBalance: this.balance });
+      return token;
     }
 
     // Need to swap for exact amount
+    this.log.debug('Swapping for exact amount', { sending: selectedTotal, target: amount });
     const result = await this.cashuWallet.send(amount, selected);
+    
+    this.log.debug('Swap result', { 
+      sendCount: result.send.length,
+      sendAmounts: result.send.map(p => p.amount),
+      keepCount: result.keep.length,
+      keepAmounts: result.keep.map(p => p.amount),
+    });
     
     // Update proofs: remove selected, add change (keep)
     this._proofs = this._proofs.filter(p => !selected.includes(p));
@@ -199,11 +241,13 @@ export class Wallet {
     this.emit('balance-change', this.balance);
 
     // Encode the send proofs as token
-    return getEncodedTokenV4({
+    const token = getEncodedTokenV4({
       mint: this.config.mintUrl,
       proofs: result.send,
       unit: this.config.unit,
     });
+    this.log.info('Token created (with swap)', { amount, newBalance: this.balance });
+    return token;
   }
 
   /**
@@ -213,21 +257,38 @@ export class Wallet {
    * @returns Amount received
    */
   async receiveToken(token: string): Promise<number> {
+    this.log.info('Receiving token', { tokenPrefix: token.substring(0, 20) + '...' });
+    
     const decoded = getDecodedToken(token);
+    this.log.debug('Token decoded', { 
+      mint: decoded.mint, 
+      proofCount: decoded.proofs?.length || 0,
+      proofAmounts: decoded.proofs?.map(p => p.amount),
+    });
     
     // Verify mint matches
     if (decoded.mint && decoded.mint !== this.config.mintUrl) {
+      this.log.error('Mint mismatch', { tokenMint: decoded.mint, walletMint: this.config.mintUrl });
       throw new Error(`Token is for different mint: ${decoded.mint}`);
     }
 
     // Get proofs from token
     const tokenProofs = decoded.proofs || [];
     if (tokenProofs.length === 0) {
+      this.log.error('Empty token');
       throw new Error('Token contains no proofs');
     }
 
     // Swap proofs to get fresh ones (prevents double-spend by sender)
+    this.log.debug('Swapping proofs with mint...');
     const received = await this.cashuWallet.receive(token);
+    
+    const amount = received.reduce((sum, p) => sum + p.amount, 0);
+    this.log.debug('Received proofs from swap', { 
+      receivedCount: received.length,
+      receivedAmounts: received.map(p => p.amount),
+      totalAmount: amount,
+    });
     
     // Add to wallet
     this._proofs.push(...received);
@@ -235,7 +296,8 @@ export class Wallet {
     this.emit('proofs-change', this._proofs);
     this.emit('balance-change', this.balance);
 
-    return received.reduce((sum, p) => sum + p.amount, 0);
+    this.log.info('Token received', { amount, newBalance: this.balance });
+    return amount;
   }
 
   /**

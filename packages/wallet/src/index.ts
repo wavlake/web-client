@@ -53,6 +53,16 @@ export {
   isProofValid,
 } from './checkstate.js';
 
+// Debug logging utilities
+export {
+  getLogBuffer,
+  clearLogBuffer,
+  subscribeToLogs,
+  consoleLogger,
+  silentLogger,
+  createLogger,
+} from './logger.js';
+
 // Types
 export type {
   Proof,
@@ -63,4 +73,7 @@ export type {
   WalletEventHandlers,
   AsyncStorageStatic,
   CreateTokenResult,
+  Logger,
+  LogEntry,
+  LogLevel,
 } from './types.js';

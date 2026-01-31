@@ -16,6 +16,7 @@ import { PaywallError } from './errors.js';
 import { requestAudio, getAudioUrl, getAudioPrice } from './audio.js';
 import { requestContent, replayGrant, getContentPrice } from './content.js';
 import { fetchChange, hasChange } from './change.js';
+import { createLogger, type Logger } from './logger.js';
 
 /**
  * Stateless client for interacting with Wavlake paywall endpoints.
@@ -42,6 +43,7 @@ import { fetchChange, hasChange } from './change.js';
  */
 export class PaywallClient {
   private readonly config: PaywallClientConfig;
+  private readonly log: Logger;
 
   constructor(config: PaywallClientConfig) {
     // Normalize API URL (remove trailing slash)
@@ -50,6 +52,8 @@ export class PaywallClient {
       apiUrl: config.apiUrl.replace(/\/+$/, ''),
       timeout: config.timeout ?? 30000,
     };
+    this.log = createLogger(config.debug);
+    this.log.info('PaywallClient initialized', { apiUrl: this.config.apiUrl });
   }
 
   // ==========================================================================
@@ -69,7 +73,21 @@ export class PaywallClient {
     token: string,
     options?: RequestAudioOptions
   ): Promise<AudioResult> {
-    return requestAudio(this.config, dtag, token, options);
+    this.log.info('Requesting audio', { dtag, tokenPrefix: token.substring(0, 20) + '...', options });
+    try {
+      const result = await requestAudio(this.config, dtag, token, options);
+      this.log.info('Audio received', { 
+        dtag, 
+        contentType: result.contentType, 
+        size: result.audio.size,
+        hasChange: !!result.change,
+        changeAmount: result.changeAmount,
+      });
+      return result;
+    } catch (error) {
+      this.log.error('Audio request failed', { dtag, error: String(error) });
+      throw error;
+    }
   }
 
   /**
@@ -80,7 +98,9 @@ export class PaywallClient {
    * @see {@link getAudioUrl} for full documentation
    */
   getAudioUrl(dtag: string, token: string, paymentId?: string): string {
-    return getAudioUrl(this.config, dtag, token, paymentId);
+    const url = getAudioUrl(this.config, dtag, token, paymentId);
+    this.log.debug('Generated audio URL', { dtag, urlLength: url.length });
+    return url;
   }
 
   /**
@@ -109,7 +129,22 @@ export class PaywallClient {
     token: string,
     options?: RequestContentOptions
   ): Promise<ContentResult> {
-    return requestContent(this.config, dtag, token, options);
+    this.log.info('Requesting content', { dtag, tokenPrefix: token.substring(0, 20) + '...', options });
+    try {
+      const result = await requestContent(this.config, dtag, token, options);
+      this.log.info('Content received', { 
+        dtag, 
+        grantId: result.grant.id,
+        expiresAt: result.grant.expiresAt,
+        streamType: result.grant.streamType,
+        hasChange: !!result.change,
+        changeAmount: result.changeAmount,
+      });
+      return result;
+    } catch (error) {
+      this.log.error('Content request failed', { dtag, error: String(error) });
+      throw error;
+    }
   }
 
   /**

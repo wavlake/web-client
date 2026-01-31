@@ -51,6 +51,16 @@ export {
   TimeoutError,
 } from './errors.js';
 
+// Debug logging utilities
+export {
+  getLogBuffer,
+  clearLogBuffer,
+  subscribeToLogs,
+  consoleLogger,
+  silentLogger,
+  createLogger,
+} from './logger.js';
+
 // Types
 export type {
   PaywallClientConfig,
@@ -62,4 +72,7 @@ export type {
   ChangeResult,
   PaymentError,
   PaymentErrorCode,
+  Logger,
+  LogEntry,
+  LogLevel,
 } from './types.js';

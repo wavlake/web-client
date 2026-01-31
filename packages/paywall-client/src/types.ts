@@ -8,6 +8,8 @@
 // Configuration
 // ============================================================================
 
+import type { Logger } from './logger.js';
+
 /**
  * Configuration for PaywallClient
  */
@@ -18,7 +20,11 @@ export interface PaywallClientConfig {
   defaultHeaders?: Record<string, string>;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
+  /** Enable debug logging (true for console, or provide custom Logger) */
+  debug?: boolean | Logger;
 }
+
+export type { Logger, LogEntry, LogLevel } from './logger.js';
 
 // ============================================================================
 // Audio Endpoint Types

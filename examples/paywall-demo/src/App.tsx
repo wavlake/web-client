@@ -8,6 +8,7 @@ import { WalletPanel } from './components/WalletPanel';
 import { TrackList } from './components/TrackList';
 import { Player } from './components/Player';
 import { Settings } from './components/Settings';
+import { DebugPanel } from './components/DebugPanel';
 import { PlayerProvider } from './hooks/usePlayer';
 import './styles.css';
 
@@ -16,14 +17,16 @@ const MINT_URL = 'https://nutshell-staging-854568123236.us-central1.run.app';
 const API_URL = 'https://api-staging-854568123236.us-central1.run.app';
 
 export function App() {
-  // Create wallet and client once
+  // Create wallet and client once (debug mode enabled)
   const wallet = useMemo(() => new Wallet({
     mintUrl: MINT_URL,
     storage: new LocalStorageAdapter('paywall-demo-wallet'),
+    debug: true,
   }), []);
 
   const client = useMemo(() => new PaywallClient({
     apiUrl: API_URL,
+    debug: true,
   }), []);
 
   return (
@@ -41,6 +44,7 @@ export function App() {
                 <WalletPanel />
                 <Settings />
                 <TrackList />
+                <DebugPanel />
                 <Player />
               </div>
             </PlayerProvider>

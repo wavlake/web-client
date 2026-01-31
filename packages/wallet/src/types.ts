@@ -5,9 +5,11 @@
  */
 
 import type { Proof } from '@cashu/cashu-ts';
+import type { Logger } from './logger.js';
 
 // Re-export Proof type for convenience
 export type { Proof } from '@cashu/cashu-ts';
+export type { Logger, LogEntry, LogLevel } from './logger.js';
 
 // ============================================================================
 // Storage Types
@@ -77,6 +79,8 @@ export interface WalletConfig {
   autoReceiveChange?: boolean;
   /** Unit for the wallet (default: 'usd') */
   unit?: string;
+  /** Enable debug logging (true for console, or provide custom Logger) */
+  debug?: boolean | Logger;
 }
 
 /**
