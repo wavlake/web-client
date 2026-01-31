@@ -25,29 +25,37 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
   const { walletStorage } = useSettings();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   
-  // Track current storage mode to avoid unnecessary recreations
-  const currentModeRef = useRef<string | null>(null);
-  const isCreatingRef = useRef(false);
-
+  // Use refs to access latest values without triggering effect
+  const ndkRef = useRef(ndk);
+  const signerRef = useRef(signer);
+  ndkRef.current = ndk;
+  signerRef.current = signer;
+  
+  // Compute effective mode as a stable string key
+  const canUseNostr = walletStorage === 'nostr' && isLoggedIn && ndk && connected && signer;
+  const effectiveMode = canUseNostr ? 'nostr' : 'local';
+  
+  // Only re-run when effectiveMode changes
   useEffect(() => {
-    // Determine effective storage mode
-    const canUseNostr = walletStorage === 'nostr' && isLoggedIn && ndk && connected && signer;
-    const effectiveMode = canUseNostr ? 'nostr' : 'local';
-    
-    // Skip if we're already using this mode or currently creating
-    if (currentModeRef.current === effectiveMode || isCreatingRef.current) {
-      return;
-    }
+    let cancelled = false;
 
     const createWallet = async () => {
-      isCreatingRef.current = true;
       let storage;
 
-      if (canUseNostr) {
+      if (effectiveMode === 'nostr') {
+        // Use refs to get current values
+        const currentNdk = ndkRef.current;
+        const currentSigner = signerRef.current;
+        
+        if (!currentNdk || !currentSigner) {
+          console.error('NDK or signer not available for Nostr mode');
+          return;
+        }
+        
         console.log('🔄 Using NIP-60 Nostr storage');
         storage = new Nip60Adapter({
-          ndk: ndk!,
-          signer: signer!,
+          ndk: currentNdk,
+          signer: currentSigner,
           mintUrl: MINT_URL,
           unit: 'usd',
         });
@@ -64,16 +72,20 @@ function WalletSetup({ children }: { children: React.ReactNode }) {
       });
 
       await newWallet.load();
-      currentModeRef.current = effectiveMode;
-      isCreatingRef.current = false;
-      setWallet(newWallet);
+      
+      if (!cancelled) {
+        setWallet(newWallet);
+      }
     };
 
     createWallet().catch((err) => {
       console.error('Wallet creation failed:', err);
-      isCreatingRef.current = false;
     });
-  }, [walletStorage, isLoggedIn, ndk, connected, signer]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveMode]); // Only depend on the computed mode
 
   const client = useMemo(() => new PaywallClient({
     apiUrl: API_URL,
