@@ -6,21 +6,29 @@ Wavlake Web Client + SDK Monorepo.
 
 ```
 packages/
-├── paywall-client/    # @wavlake/paywall-client - Stateless API client
-├── wallet/            # @wavlake/wallet - Cashu wallet state (TODO)
-├── paywall-react/     # @wavlake/paywall-react - React hooks (TODO)
-└── credits-client/    # Reference implementation (single file)
+├── paywall-client/       # @wavlake/paywall-client - Stateless API client
+├── wallet/               # @wavlake/wallet - Cashu wallet with pluggable storage
+├── nostr-wallet/         # @wavlake/nostr-wallet - NIP-60/61 storage adapter
+├── paywall-react/        # @wavlake/paywall-react - React hooks + providers
+├── paywall-react-native/ # @wavlake/paywall-react-native - RN adapter
+└── credits-client/       # Reference implementation (single file)
+```
+
+## Examples
+
+```
+examples/
+└── paywall-demo/    # POC v2 - deployed to GitHub Pages
 ```
 
 ## SDK Implementation Status
 
-See `/home/clawd/clawd/users/josh_1994891486/workspace/paywall-sdk-plan/PLAN.md` for full plan.
-
-- [x] Phase 1: `@wavlake/paywall-client` - COMPLETE
-- [ ] Phase 2: `@wavlake/wallet`
-- [ ] Phase 3: `@wavlake/paywall-react`
-- [ ] Phase 4: `@wavlake/paywall-react-native`
-- [ ] Phase 5: Documentation & Examples
+- [x] Phase 1: `@wavlake/paywall-client` - Stateless API client
+- [x] Phase 2: `@wavlake/wallet` - Wallet with local/memory storage
+- [x] Phase 3: `@wavlake/nostr-wallet` - NIP-60 relay storage
+- [x] Phase 4: `@wavlake/paywall-react` - React hooks + providers
+- [x] Phase 5: `@wavlake/paywall-react-native` - RN adapter (basic)
+- [x] POC v2 Demo - GitHub Pages deployment
 
 ---
 
@@ -206,6 +214,43 @@ const privkeyHex = bytesToHex(new Uint8Array(bech32.fromWords(words)));
 const pubkeyHex = bytesToHex(schnorr.getPublicKey(privkeyHex));
 ```
 
+## NIP-60 Wallet Storage
+
+The SDK supports syncing wallet proofs to Nostr relays via NIP-60.
+
+### Configuration
+
+```typescript
+import { Nip60Adapter } from '@wavlake/nostr-wallet';
+
+const storage = new Nip60Adapter({
+  ndk,
+  signer,
+  mintUrl: MINT_URL,
+  unit: 'usd',  // Important: match keyset unit!
+});
+
+const wallet = new Wallet({ mintUrl, storage, unit: 'usd' });
+```
+
+### Relay Priority
+
+Primary relay for NIP-60: `wss://relay.wavlake.com`
+
+```typescript
+const RELAYS = [
+  'wss://relay.wavlake.com',  // Primary for wallet storage
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+];
+```
+
+### Event Kinds
+
+- `kind:17375` - Wallet event (P2PK keys, mints)
+- `kind:7375` - Token events (encrypted proofs)
+- `kind:7376` - Spending history
+
 ## Gotchas
 
 **Header name:** `X-Ecash-Token` (not X-Cashu-Token)
@@ -218,3 +263,42 @@ const url = data.data?.url || data.url;
 **Wallet.send() returns:** `{ send: Proof[], keep: Proof[] }`
 - `send` = proofs to pay with
 - `keep` = change to retain
+
+**Keyset unit matters:** The mint has separate keysets for `sat` and `usd`. 
+Always specify `unit: 'usd'` for USD credits:
+
+```typescript
+// Correct
+const wallet = new Wallet({ mintUrl, storage, unit: 'usd' });
+
+// Wrong - will use sat keyset
+const wallet = new Wallet({ mintUrl, storage });
+```
+
+**Mint keysets:**
+- `00ad82d4e3acaf21` - USD, 0 fee (preferred)
+- `009c98fd4a55013a` - USD, 100 ppk fee
+- `000542834cffddfb` - sat, 0 fee
+- `00c89963a0eb87a3` - sat, 100 ppk fee
+
+**Wallet init optimization:** Avoid redundant mint API calls by:
+1. Computing effective mode (`'local'` vs `'nostr'`) as a single value
+2. Only re-run effect when mode actually changes
+3. Use refs for ndk/signer to avoid stale closures
+
+```typescript
+// Bad: triggers on every dep change
+useEffect(() => { ... }, [walletStorage, isLoggedIn, ndk, connected, signer]);
+
+// Good: triggers only when mode changes
+const effectiveMode = canUseNostr ? 'nostr' : 'local';
+useEffect(() => { ... }, [effectiveMode]);
+```
+
+**nsec decoding:** Use `@scure/base` directly, not dynamic imports:
+
+```typescript
+import { bech32 } from '@scure/base';
+const { words } = bech32.decode(nsec, 1500);
+const privkeyBytes = bech32.fromWords(words);
+```
