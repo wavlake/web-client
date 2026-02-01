@@ -54,14 +54,20 @@ describe('useWallet', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should provide initial state', () => {
+  it('should provide initial state', async () => {
     const { result } = renderHook(() => useWallet(), { wrapper });
 
-    expect(result.current.balance).toBe(0); // Initial before load
+    // Initial state before load completes
+    expect(result.current.balance).toBe(0);
     expect(result.current.proofs).toEqual([]);
     expect(result.current.isReady).toBe(false);
     expect(result.current.isLoading).toBe(true); // autoLoad triggers loading
     expect(result.current.error).toBe(null);
+
+    // Wait for autoLoad to complete to avoid act() warnings
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 
   it('should load wallet and update state', async () => {
