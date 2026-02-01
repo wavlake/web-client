@@ -302,3 +302,54 @@ import { bech32 } from '@scure/base';
 const { words } = bech32.decode(nsec, 1500);
 const privkeyBytes = bech32.fromWords(words);
 ```
+
+---
+
+## E2E Testing
+
+Integration tests against staging API in `tests/e2e/`.
+
+### Commands
+
+```bash
+npm run test:e2e          # Run all E2E tests
+npm run test:e2e:payment  # Payment flow tests only
+```
+
+### Proof Pool
+
+E2E tests use real ecash proofs from `proofs.json`. The pool manager handles:
+- Withdrawing proofs for test payments
+- Returning change after successful calls
+- Automatic backup before modifications
+
+```typescript
+import { withdrawProofs, returnProofs } from './helpers/proof-pool';
+
+const { proofs, token, total } = withdrawProofs(amount);
+// Use token in test...
+// If test fails before spend:
+returnProofs(proofs);
+```
+
+**Check pool status:**
+```bash
+node scripts/proof-pool-status.ts
+```
+
+### Side Effects
+
+See `tests/e2e/SIDE_EFFECTS.md` for full documentation. Key points:
+- Ecash proofs are **consumed permanently** when spent
+- Artist earnings/stream counts accumulate (not reversible)
+- Grants auto-expire (10 min TTL)
+- Read-only tests are safe to run repeatedly
+
+### Snapshots
+
+The snapshot system (`tests/e2e/snapshots/`) tracks state changes over time:
+- Artist balance/earnings before and after
+- Proof pool balance
+- Stream counts
+
+Used to verify royalty flows and detect unexpected side effects.
