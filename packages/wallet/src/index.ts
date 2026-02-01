@@ -96,6 +96,22 @@ export type {
   HealthCheckOptions,
 } from './health.js';
 
+// Denomination analysis utilities
+export {
+  analyzeExactPayment,
+  analyzePayment,
+  analyzeDenominationHealth,
+  suggestDenominations,
+  batchCheckExactPayments,
+} from './denomination.js';
+
+export type {
+  ExactPaymentAnalysis,
+  PaymentAnalysis,
+  DenominationHealth,
+  AnalysisOptions,
+} from './denomination.js';
+
 // Debug logging utilities
 export {
   getLogBuffer,
