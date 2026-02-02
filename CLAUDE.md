@@ -281,6 +281,11 @@ const wallet = new Wallet({ mintUrl, storage });
 - `000542834cffddfb` - sat, 0 fee
 - `00c89963a0eb87a3` - sat, 100 ppk fee
 
+**Unit conversion in API:** The API handles sat vs usd amounts differently:
+- `sat` unit: amount × 1000 (converted to msats internally)
+- `usd` unit: amount used directly as credits
+Never mix units! A 2-credit payment with sat keyset would be interpreted as 2000 msats.
+
 **Wallet init optimization:** Avoid redundant mint API calls by:
 1. Computing effective mode (`'local'` vs `'nostr'`) as a single value
 2. Only re-run effect when mode actually changes
