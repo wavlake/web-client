@@ -99,11 +99,22 @@ export {
   type PaymentStatus,
 } from './hooks/useTrackPayment.js';
 
+export {
+  useWalletHealth,
+  useQuickHealth,
+  type WalletHealthState,
+  type UseWalletHealthOptions,
+} from './hooks/useWalletHealth.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
   MintQuote,
   CheckProofsResult,
+  WalletHealth,
+  MintStatus,
+  ProofHealth,
+  HealthCheckOptions,
 } from '@wavlake/wallet';
 
 export type {
