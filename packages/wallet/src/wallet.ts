@@ -17,6 +17,7 @@ import type { StorageAdapter } from './storage/interface.js';
 import { smallestFirst } from './selectors/smallest.js';
 import { checkProofState } from './checkstate.js';
 import { createLogger, type Logger } from './logger.js';
+import { TokenCreationError, WalletError, buildTokenErrorContext } from './errors.js';
 
 /**
  * Cashu wallet with state management.
@@ -181,19 +182,28 @@ export class Wallet {
 
     if (amount <= 0) {
       this.log.error('Invalid amount', { amount });
-      throw new Error('Amount must be positive');
+      const context = buildTokenErrorContext('INVALID_AMOUNT', amount, this._proofs);
+      throw new TokenCreationError('Amount must be positive', context);
     }
 
     if (this.balance < amount) {
       this.log.error('Insufficient balance', { needed: amount, have: this.balance });
-      throw new Error(`Insufficient balance: need ${amount}, have ${this.balance}`);
+      const context = buildTokenErrorContext('INSUFFICIENT_BALANCE', amount, this._proofs);
+      throw new TokenCreationError(
+        `Insufficient balance: need ${amount}, have ${this.balance}`,
+        context
+      );
     }
 
     // Select proofs
     const selected = this.config.proofSelector(this._proofs, amount);
     if (!selected) {
       this.log.error('Could not select proofs', { amount, availableProofs: this._proofs.map(p => p.amount) });
-      throw new Error(`Could not select proofs for amount ${amount}`);
+      const context = buildTokenErrorContext('SELECTION_FAILED', amount, this._proofs);
+      throw new TokenCreationError(
+        `Could not select proofs for amount ${amount}`,
+        context
+      );
     }
 
     const selectedTotal = selected.reduce((sum, p) => sum + p.amount, 0);
@@ -269,14 +279,21 @@ export class Wallet {
     // Verify mint matches
     if (decoded.mint && decoded.mint !== this.config.mintUrl) {
       this.log.error('Mint mismatch', { tokenMint: decoded.mint, walletMint: this.config.mintUrl });
-      throw new Error(`Token is for different mint: ${decoded.mint}`);
+      throw new WalletError(`Token is for different mint: ${decoded.mint}`, {
+        code: 'MINT_MISMATCH',
+        mintUrl: this.config.mintUrl,
+        details: { tokenMint: decoded.mint },
+      });
     }
 
     // Get proofs from token
     const tokenProofs = decoded.proofs || [];
     if (tokenProofs.length === 0) {
       this.log.error('Empty token');
-      throw new Error('Token contains no proofs');
+      throw new WalletError('Token contains no proofs', {
+        code: 'INVALID_TOKEN',
+        mintUrl: this.config.mintUrl,
+      });
     }
 
     // Swap proofs to get fresh ones (prevents double-spend by sender)

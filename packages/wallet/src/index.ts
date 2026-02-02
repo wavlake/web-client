@@ -106,6 +106,24 @@ export {
   createLogger,
 } from './logger.js';
 
+// Error classes
+export {
+  TokenCreationError,
+  WalletError,
+  generateTokenCreationSuggestion,
+  buildTokenErrorContext,
+  isWalletRelatedError,
+  getUserMessage,
+  getRecoverySuggestion,
+} from './errors.js';
+
+export type {
+  TokenCreationErrorCode,
+  TokenCreationErrorContext,
+  WalletErrorCode,
+  WalletErrorContext,
+} from './errors.js';
+
 // Types
 export type {
   Proof,
