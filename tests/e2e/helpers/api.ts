@@ -333,12 +333,24 @@ export async function claimChange(paymentId: string): Promise<{
   const url = `${apiUrl}/api/v1/change/${paymentId}`;
   
   const response = await fetch(url);
-  const json = await response.json();
+  const text = await response.text();
+  
+  // Handle non-JSON responses (e.g., plain "404 page not found")
+  let json: any;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    return { 
+      ok: false, 
+      status: response.status, 
+      error: { code: 'INVALID_RESPONSE', message: text || 'Non-JSON response' }
+    };
+  }
   
   if (response.ok) {
     return { ok: true, status: response.status, data: json };
   } else {
-    return { ok: false, status: response.status, error: json.error };
+    return { ok: false, status: response.status, error: json.error || { code: 'UNKNOWN', message: 'Unknown error' } };
   }
 }
 

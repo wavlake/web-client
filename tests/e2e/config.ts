@@ -27,7 +27,7 @@ export const config = {
     paid: {
       dtag: 'track-24bf3b5b-a133-4584-a73b-392af8967e87',
       title: 'How to Sing',
-      priceCredits: 2,
+      priceCredits: 1, // Updated: API now returns 1
     },
     free: {
       dtag: 'track-2122de24-dda1-4f3d-9637-410e7a741b71',

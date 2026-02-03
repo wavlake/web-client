@@ -77,38 +77,9 @@
     "id": "00ad82d4e3acaf21"
   },
   {
-    "amount": 4,
-    "C": "03e78910326636fd563100f621e2238caea738fba63593f18dcdbd51faeb5d57b1",
-    "id": "00ad82d4e3acaf21",
-    "secret": "c31ba97410be7949f4ac626ea9a2459b17e27a83f11861670102c001ed743027",
-    "dleq": {
-      "s": "43bec34448c5831e53089e83240818a9ef65ce5f0a54d51a77342d0ecc242d55",
-      "e": "197821dab1e161573952ec561ce26300657e92450d9c29df9bb24e9dfab07902",
-      "r": "4f3a1b1142578f84cc787dad33c69eb97599faf54b0cfcb03820ef43a588dad2"
-    }
-  },
-  {
-    "secret": "7a7b7aa17087afb6694cafe21585de37b10133a9c50a515152d0d49e552d06eb",
-    "C": "023b7e73b0e6450d1a7d0659a3be9a01ce50d23ec91dba3997e210a50cfc1584e3",
-    "amount": 4,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
     "secret": "890092ddad355a1ea0160ff488b295d89a346efd18d85bfa2dfa8528b3b6c7ec",
     "C": "02e51e31c0d2a71986fdb3aacab73cce0d63d9999f03760b915d82d1c4ab7c1530",
     "amount": 2,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "334e30fc8c8c3a95025a0b0cc623183d5a49a28ee26b04a000d368569399a819",
-    "C": "03a17fb1f4f32219ccb895859b4741f3f16c22eab1a70870a0c80c1e453f91891e",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "29f68e7162691ccadea0ab70b9b688d121304968371d62b164d761fd56b42bd6",
-    "C": "02aab8c988a38ebb2b0349fdd2f568ddf4ef00d24928021f9eab41377e1172fe70",
-    "amount": 4,
     "id": "00ad82d4e3acaf21"
   },
   {
@@ -118,33 +89,9 @@
     "id": "00ad82d4e3acaf21"
   },
   {
-    "secret": "8d8389b96d226035561ac5d8a0005622f1f79cfb51b1687c2929d31975f7d83f",
-    "C": "030f0065cff3dec9ceda11f5015f98d4d4725d17d66b7a94c93a14692bcca4dfd7",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "4fe7bbb94dbf7074388839c256a7383a9dc3425b46e461299743a92f4c57ed0b",
-    "C": "03c50c8fe1ae1f2c3fa489c6e191c13244c7298f5b4e427edc283158ba6c16deab",
-    "amount": 4,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
     "secret": "47ce4da09bf5180b09018e219ecad0f918ae3382ce6138199997fc2c2ac96d6b",
     "C": "025033aac26b49b1723ef645c8f07036e9efcfab9c7b41951897dba35b366c9a22",
     "amount": 2,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "df355a1e4af74e81955559903fdc516259f256048b3a4db7976699ac3e7d23d6",
-    "C": "034699ae9da90aa7587feeee08e46b361968325fe84cfb7953d22e68d4b833728c",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "f2e71cb5a56ae16f0cf8196a9734e37161b5aa894d3ec0fd49cea69de30c4b90",
-    "C": "02f2210ec2e309cb2b618bf06a910fd3bee053477d3842e189d39e47b64ffbfb2f",
-    "amount": 4,
     "id": "00ad82d4e3acaf21"
   },
   {
@@ -154,33 +101,9 @@
     "id": "00ad82d4e3acaf21"
   },
   {
-    "secret": "e2c48ee39efbf325dbc6144b12fb21be7fbc3998b7157a089fd497163b90841c",
-    "C": "037e79701a8ecf611c1ff63371aa577e908a59ab5e846b7e949b44945a371a4a6d",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "5070026249afc876bb51d2fd26402ca8c145c65fdc7fdea3b0d7e007c8f1c322",
-    "C": "02b62600ccc9281ee4021b232e1e8b452bbd9db4fc798bec243c9c0f2bb5fc6002",
-    "amount": 4,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
     "secret": "d49daed64cd8c63558f8430561d0ec5f82bd15252bf7f0de29dd54b22f73bb08",
     "C": "020ef501e776a0c1f4cacf94ec88a3d7e463e7c55429e37596521ab5eba117f0d0",
     "amount": 2,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "f0c50931d57aae59ca6a982e58d1f6bec6d4b4a98bcaa31c213d79b53d9b1b82",
-    "C": "02dc157d6ab197d28f024c71d96bd665e42db884a59ccac7cffabaef88b6f84eb6",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
-  },
-  {
-    "secret": "12e5ccfadada4fa01c5e461399431055909890aa83e39ae32481586abcac7ffe",
-    "C": "03fb7fb903fed627a1241aca52115e522c5b5808679a77cab0e3b199ca216970ce",
-    "amount": 4,
     "id": "00ad82d4e3acaf21"
   },
   {
@@ -190,9 +113,14 @@
     "id": "00ad82d4e3acaf21"
   },
   {
-    "secret": "caf8a582852f36656a25d3a340fa432624a406d71237c6839c971ff5d61014e3",
-    "C": "02a74195ccee0b3762476626ffef619a80d394a1159b2127b65f85cdb98dd58954",
-    "amount": 8,
-    "id": "00ad82d4e3acaf21"
+    "amount": 4,
+    "C": "03e78910326636fd563100f621e2238caea738fba63593f18dcdbd51faeb5d57b1",
+    "id": "00ad82d4e3acaf21",
+    "secret": "c31ba97410be7949f4ac626ea9a2459b17e27a83f11861670102c001ed743027",
+    "dleq": {
+      "s": "43bec34448c5831e53089e83240818a9ef65ce5f0a54d51a77342d0ecc242d55",
+      "e": "197821dab1e161573952ec561ce26300657e92450d9c29df9bb24e9dfab07902",
+      "r": "4f3a1b1142578f84cc787dad33c69eb97599faf54b0cfcb03820ef43a588dad2"
+    }
   }
 ]
