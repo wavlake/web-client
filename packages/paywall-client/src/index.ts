@@ -85,4 +85,7 @@ export type {
   Logger,
   LogEntry,
   LogLevel,
+  // Two-chunk streaming types
+  ChunkType,
+  TwoChunkInfo,
 } from './types.js';

@@ -23,3 +23,6 @@ export interface Track {
   metadata: TrackMetadata;
   createdAt: number;
 }
+
+// Re-export two-chunk types from SDK for convenience
+export type { ChunkType, TwoChunkInfo } from '@wavlake/paywall-client';

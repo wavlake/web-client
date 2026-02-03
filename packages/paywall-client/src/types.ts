@@ -36,20 +36,47 @@ export type { Logger, LogEntry, LogLevel } from './logger.js';
 export interface RequestAudioOptions {
   /** HTTP Range header for seeking (e.g., 'bytes=0-1048575') */
   range?: string;
+  /** Additional headers (e.g., X-Resume-Token for two-chunk resume) */
+  headers?: Record<string, string>;
+}
+
+/**
+ * Chunk type from X-Chunk header (two-chunk streaming)
+ * - 'preview': First 60s of audio (no payment settled yet)
+ * - 'paid': Audio from 60s onwards (payment settled)
+ * - 'full': Entire track (short tracks < 60s, or free tracks)
+ */
+export type ChunkType = 'preview' | 'paid' | 'full';
+
+/**
+ * Two-chunk streaming headers from audio endpoint
+ */
+export interface TwoChunkInfo {
+  /** Which chunk this is: preview (0-60s), paid (60s+), or full */
+  chunk?: ChunkType;
+  /** Deposit ID when token was provided */
+  depositId?: string;
+  /** True when stream stopped at 60s checkpoint without payment */
+  paymentRequired?: boolean;
+  /** True after successful token swap at checkpoint */
+  paymentSettled?: boolean;
+  /** JWT for resuming from 60s mark (10 min TTL) */
+  resumeToken?: string;
 }
 
 /**
  * Result from requestAudio
+ * 
+ * Note: Server no longer returns change (Phase 5 of Sat-to-USD PRD).
+ * Overpayment becomes artist tip. Clients should prepare exact denominations.
  */
 export interface AudioResult {
   /** Binary audio data */
   audio: Blob;
   /** Content-Type header (e.g., 'audio/mpeg') */
   contentType: string;
-  /** Change token if overpayment (cashuB encoded) */
-  change?: string;
-  /** Amount of change returned in credits */
-  changeAmount?: number;
+  /** Two-chunk streaming info (preview/paid/resume) */
+  twoChunk?: TwoChunkInfo;
 }
 
 // ============================================================================
@@ -80,24 +107,27 @@ export interface AccessGrant {
 
 /**
  * Result from requestContent
+ * 
+ * Note: Server no longer returns change (Phase 5 of Sat-to-USD PRD).
+ * Overpayment becomes artist tip. Clients should prepare exact denominations.
  */
 export interface ContentResult {
   /** Signed URL to fetch audio from */
   url: string;
   /** Access grant for replay */
   grant: AccessGrant;
-  /** Change token if overpayment (cashuB encoded) */
-  change?: string;
-  /** Amount of change returned in credits */
-  changeAmount?: number;
 }
 
 // ============================================================================
-// Change Endpoint Types
+// Change Endpoint Types (DEPRECATED)
 // ============================================================================
 
+// Note: Change mechanism was removed in Phase 5 of Sat-to-USD PRD.
+// Server-side change breaks ecash privacy. Clients should prepare exact
+// denominations via mint swap. Overpayment becomes artist tip.
+
 /**
- * Result from fetchChange
+ * @deprecated Change endpoint was removed. Overpayment becomes artist tip.
  */
 export interface ChangeResult {
   /** Payment ID the change is for */
@@ -177,8 +207,7 @@ export interface ContentApiData {
     expires_at: string;
     stream_type: 'paid' | 'free' | 'honor';
   };
-  change?: string;
-  change_amount?: number;
+  // Note: change fields removed in Phase 5 - overpayment becomes artist tip
 }
 
 /** @internal */

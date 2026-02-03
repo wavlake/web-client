@@ -8,8 +8,47 @@ import type {
   PaywallClientConfig,
   AudioResult,
   RequestAudioOptions,
+  TwoChunkInfo,
+  ChunkType,
 } from './types.js';
 import { PaywallError, NetworkError, TimeoutError, parseApiError } from './errors.js';
+
+/**
+ * Parse two-chunk streaming headers from response
+ */
+function parseTwoChunkHeaders(headers: Headers): TwoChunkInfo {
+  const info: TwoChunkInfo = {};
+
+  // X-Chunk: 'preview' | 'paid' | 'full'
+  const chunk = headers.get('X-Chunk');
+  if (chunk && ['preview', 'paid', 'full'].includes(chunk)) {
+    info.chunk = chunk as ChunkType;
+  }
+
+  // X-Deposit-ID: UUID when token provided
+  const depositId = headers.get('X-Deposit-ID');
+  if (depositId) {
+    info.depositId = depositId;
+  }
+
+  // X-Payment-Required: set at 60s checkpoint with no token
+  if (headers.get('X-Payment-Required') === 'true') {
+    info.paymentRequired = true;
+  }
+
+  // X-Payment-Settled: set after successful swap
+  if (headers.get('X-Payment-Settled') === 'true') {
+    info.paymentSettled = true;
+  }
+
+  // X-Resume-Token: JWT for resuming from 60s mark
+  const resumeToken = headers.get('X-Resume-Token');
+  if (resumeToken) {
+    info.resumeToken = resumeToken;
+  }
+
+  return info;
+}
 
 /**
  * Request audio binary directly from the audio endpoint.
@@ -41,6 +80,7 @@ export async function requestAudio(
 
   const headers: Record<string, string> = {
     ...config.defaultHeaders,
+    ...options.headers, // Additional headers (e.g., X-Resume-Token)
     'X-Ecash-Token': token,
   };
 
@@ -75,16 +115,13 @@ export async function requestAudio(
     const audio = await response.blob();
     const contentType = response.headers.get('Content-Type') || 'audio/mpeg';
     
-    // Extract change from headers if present
-    const change = response.headers.get('X-Ecash-Change') || undefined;
-    const changeAmountHeader = response.headers.get('X-Ecash-Change-Amount');
-    const changeAmount = changeAmountHeader ? parseInt(changeAmountHeader, 10) : undefined;
+    // Parse two-chunk streaming headers
+    const twoChunk = parseTwoChunkHeaders(response.headers);
 
     return {
       audio,
       contentType,
-      change,
-      changeAmount,
+      twoChunk: Object.keys(twoChunk).length > 0 ? twoChunk : undefined,
     };
   } catch (error) {
     if (timeoutId) clearTimeout(timeoutId);

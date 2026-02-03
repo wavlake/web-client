@@ -1,7 +1,12 @@
 /**
  * Change recovery endpoint functions
  * 
- * Retrieve change from overpayment via /api/v1/change/{paymentId}
+ * @deprecated The change endpoint was removed in Phase 5 of Sat-to-USD PRD.
+ * Server-side change breaks ecash privacy. Clients should prepare exact
+ * denominations via mint swap before payment. Overpayment becomes artist tip.
+ * 
+ * These functions are kept for backwards compatibility but will throw errors
+ * as the server endpoint no longer exists.
  */
 
 import type {
@@ -15,22 +20,12 @@ import { PaywallError, NetworkError, TimeoutError, parseApiError } from './error
 /**
  * Fetch change from a previous payment.
  * 
- * If a payment included more credits than required, the server holds
- * the change. Use this endpoint to retrieve it.
+ * @deprecated This endpoint was removed. Server no longer returns change.
+ * Overpayment becomes artist tip. Prepare exact token denominations instead.
  * 
  * @param config - Client configuration
  * @param paymentId - Payment ID from the original request
- * @returns Change result (change token may be null if already claimed)
- * 
- * @example
- * ```ts
- * // After making a payment, check for change
- * const result = await fetchChange(config, paymentId);
- * if (result.change) {
- *   console.log(`Got ${result.changeAmount} credits back`);
- *   await wallet.receiveToken(result.change);
- * }
- * ```
+ * @returns Change result (will always be null as endpoint removed)
  */
 export async function fetchChange(
   config: PaywallClientConfig,
@@ -92,17 +87,12 @@ export async function fetchChange(
 /**
  * Check if change is available for a payment.
  * 
+ * @deprecated This endpoint was removed. Server no longer returns change.
+ * Overpayment becomes artist tip. Prepare exact token denominations instead.
+ * 
  * @param config - Client configuration
  * @param paymentId - Payment ID to check
- * @returns true if unclaimed change exists
- * 
- * @example
- * ```ts
- * if (await hasChange(config, paymentId)) {
- *   const { change } = await fetchChange(config, paymentId);
- *   // Process change...
- * }
- * ```
+ * @returns Always false as endpoint was removed
  */
 export async function hasChange(
   config: PaywallClientConfig,

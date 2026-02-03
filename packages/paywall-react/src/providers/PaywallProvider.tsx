@@ -19,6 +19,7 @@ import type {
   AudioResult,
   ContentResult,
   ChangeResult,
+  RequestAudioOptions,
 } from '@wavlake/paywall-client';
 import type { Wallet } from '@wavlake/wallet';
 
@@ -27,8 +28,8 @@ import type { Wallet } from '@wavlake/wallet';
 // ============================================================================
 
 export interface PaywallContextValue {
-  /** Request audio binary directly */
-  requestAudio: (dtag: string, token: string) => Promise<AudioResult>;
+  /** Request audio binary directly (supports two-chunk streaming) */
+  requestAudio: (dtag: string, token: string, options?: RequestAudioOptions) => Promise<AudioResult>;
   /** Request content with grant */
   requestContent: (dtag: string, token: string) => Promise<ContentResult>;
   /** Replay existing grant */
@@ -37,7 +38,7 @@ export interface PaywallContextValue {
   getContentPrice: (dtag: string) => Promise<number>;
   /** Generate URL with embedded token */
   getAudioUrl: (dtag: string, token: string, paymentId?: string) => string;
-  /** Fetch change from overpayment */
+  /** @deprecated Change endpoint was removed. Overpayment becomes artist tip. */
   fetchChange: (paymentId: string) => Promise<ChangeResult>;
   /** Whether an operation is in progress */
   isLoading: boolean;
@@ -108,11 +109,11 @@ export function PaywallProvider({
   const [error, setError] = useState<Error | null>(null);
 
   // Actions
-  const requestAudio = useCallback(async (dtag: string, token: string) => {
+  const requestAudio = useCallback(async (dtag: string, token: string, options?: RequestAudioOptions) => {
     setIsLoading(true);
     setError(null);
     try {
-      return await clientRef.current.requestAudio(dtag, token);
+      return await clientRef.current.requestAudio(dtag, token, options);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);

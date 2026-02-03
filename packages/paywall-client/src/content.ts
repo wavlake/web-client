@@ -96,6 +96,8 @@ export async function requestContent(
       });
     }
 
+    // Note: Server no longer returns change (Phase 5 of Sat-to-USD PRD).
+    // Overpayment becomes artist tip.
     return {
       url: data.url,
       grant: {
@@ -105,8 +107,6 @@ export async function requestContent(
           : new Date(Date.now() + 10 * 60 * 1000), // Default 10 min
         streamType: data.grant?.stream_type || 'paid',
       },
-      change: data.change,
-      changeAmount: data.change_amount,
     };
   } catch (error) {
     if (timeoutId) clearTimeout(timeoutId);
