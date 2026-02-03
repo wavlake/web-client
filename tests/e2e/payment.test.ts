@@ -66,16 +66,12 @@ describe('Payment Flow Tests', () => {
       console.log('✅ Content access granted');
       console.log(`   URL: ${result.data?.url?.slice(0, 60)}...`);
       console.log(`   Stream type: ${result.data?.grant?.stream_type || 'N/A'}`);
-
-      // Handle change if any
-      if (result.data?.change) {
-        const changeProofs = getDecodedToken(result.data.change).proofs;
-        addChangeProofs(changeProofs);
-        console.log(`   Change received: ${result.data.change_amount} credits`);
-      }
+      // Note: Server no longer returns change (Phase 5) - overpayment becomes artist tip
     });
 
-    it('should return change when overpaying', async () => {
+    it('should accept overpayment as artist tip (no change returned)', async () => {
+      // Per Phase 5 of Sat-to-USD PRD: Server no longer returns change.
+      // Overpayment becomes artist tip (proper ecash privacy design).
       const overpayAmount = TRACK_PRICE + 2; // Pay extra credits
       
       if (!hasBalance(overpayAmount)) {
@@ -86,7 +82,8 @@ describe('Payment Flow Tests', () => {
       const withdrawal = withdrawProofs(overpayAmount);
       expect(withdrawal).not.toBeNull();
       
-      console.log(`📤 Overpaying: ${withdrawal!.total} credits for ${TRACK_PRICE} credit track`);
+      const tipAmount = withdrawal!.total - TRACK_PRICE;
+      console.log(`📤 Overpaying: ${withdrawal!.total} credits for ${TRACK_PRICE} credit track (${tipAmount} credit tip)`);
 
       const result = await requestContent(PAID_TRACK, withdrawal!.token);
 
@@ -98,29 +95,12 @@ describe('Payment Flow Tests', () => {
       expect(result.ok).toBe(true);
       expect(result.status).toBe(200);
       
-      // Change feature may not be deployed yet
-      if (result.data?.change === undefined) {
-        console.log('⚠️ Change not returned in response (feature may not be deployed)');
-        console.log('   Payment succeeded but overpayment was not refunded');
-        return;
-      }
+      // Verify NO change is returned (per Phase 5 design)
+      expect(result.data?.change).toBeUndefined();
+      expect(result.data?.change_amount).toBeUndefined();
       
-      // Should have change
-      expect(result.data?.change).toBeDefined();
-      expect(result.data?.change_amount).toBeGreaterThan(0);
-      
-      const expectedChange = withdrawal!.total - TRACK_PRICE;
-      expect(result.data?.change_amount).toBe(expectedChange);
-      
-      console.log('✅ Overpayment handled correctly');
-      console.log(`   Paid: ${withdrawal!.total}, Price: ${TRACK_PRICE}, Change: ${result.data?.change_amount}`);
-
-      // Add change back to pool
-      if (result.data?.change) {
-        const changeProofs = getDecodedToken(result.data.change).proofs;
-        addChangeProofs(changeProofs);
-        console.log(`   Change proofs added back to pool`);
-      }
+      console.log('✅ Overpayment accepted as artist tip');
+      console.log(`   Paid: ${withdrawal!.total}, Price: ${TRACK_PRICE}, Tip: ${tipAmount} credits`);
     });
 
     it('should include grant for replay', async () => {

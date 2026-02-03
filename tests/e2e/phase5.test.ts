@@ -1,12 +1,14 @@
 /**
- * Phase 5: URL Token Parameter & Change Recovery Tests
+ * Phase 5: URL Token Parameter Tests
  * 
- * Tests for new Phase 5 features:
+ * Tests for Phase 5 features:
  * - ?token= query parameter (alternative to X-Ecash-Token header)
- * - ?payment-id= for change recovery tracking
- * - GET /v1/change/{payment-id} endpoint
+ * - ?payment-id= for tracking (used for tips, not change recovery)
  * 
- * These endpoints enable true progressive streaming with native HTML audio:
+ * NOTE: Change recovery endpoint was REMOVED per Sat-to-USD Conversion PRD.
+ * Overpayment now becomes artist tip (proper ecash privacy design).
+ * 
+ * These endpoints enable progressive streaming with native HTML audio:
  *   <audio src="/v1/audio/track?token=cashuB...&payment-id=uuid">
  */
 
@@ -15,7 +17,6 @@ import { config } from './config';
 import {
   requestAudio,
   requestAudioWithUrlToken,
-  claimChange,
   generatePaymentId,
 } from './helpers/api';
 
@@ -92,65 +93,13 @@ describe('Phase 5: URL Token Parameter', () => {
   });
 });
 
-describe('Phase 5: Change Recovery Endpoint', () => {
+// NOTE: Change Recovery Endpoint was REMOVED in Phase 5 of Sat-to-USD Conversion PRD.
+// Server-side change mechanism was removed per proper ecash/Cashu privacy design.
+// Overpayment is now recorded as artist tip. These tests are skipped.
+describe.skip('Phase 5: Change Recovery Endpoint (REMOVED)', () => {
   describe('GET /v1/change/{payment-id}', () => {
-    it('should return 200 with null change for unknown payment-id', async () => {
-      const unknownId = generatePaymentId();
-      const result = await claimChange(unknownId);
-      
-      // Skip if endpoint not deployed (returns 404)
-      if (result.status === 404) {
-        console.log('⚠️ Change endpoint not deployed, skipping test');
-        return;
-      }
-      
-      expect(result.ok).toBe(true);
-      expect(result.status).toBe(200);
-      expect(result.data?.payment_id).toBe(unknownId);
-      expect(result.data?.change_token).toBeNull();
-      expect(result.data?.change_amount).toBeNull();
-      
-      console.log('✅ Unknown payment-id returns 200 with null change');
-    });
-
-    it('should return consistent response format', async () => {
-      const paymentId = generatePaymentId();
-      const result = await claimChange(paymentId);
-      
-      // Skip if endpoint not deployed (returns 404)
-      if (result.status === 404) {
-        console.log('⚠️ Change endpoint not deployed, skipping test');
-        return;
-      }
-      
-      expect(result.ok).toBe(true);
-      expect(result.data).toHaveProperty('payment_id');
-      expect(result.data).toHaveProperty('change_token');
-      expect(result.data).toHaveProperty('change_amount');
-      
-      console.log('✅ Change endpoint returns expected response format');
-    });
-
-    it('should handle multiple claims for same payment-id', async () => {
-      const paymentId = generatePaymentId();
-      
-      // First claim
-      const first = await claimChange(paymentId);
-      
-      // Skip if endpoint not deployed (returns 404)
-      if (first.status === 404) {
-        console.log('⚠️ Change endpoint not deployed, skipping test');
-        return;
-      }
-      
-      expect(first.ok).toBe(true);
-      
-      // Second claim (should also succeed, but still null since no payment was made)
-      const second = await claimChange(paymentId);
-      expect(second.ok).toBe(true);
-      expect(second.data?.change_token).toBeNull();
-      
-      console.log('✅ Multiple claims handled gracefully');
+    it('endpoint was removed - overpayment becomes artist tip', () => {
+      console.log('ℹ️ Change endpoint removed per Phase 5 - overpayment = artist tip');
     });
   });
 });
