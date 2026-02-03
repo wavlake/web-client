@@ -122,6 +122,17 @@ export {
   createLogger,
 } from './logger.js';
 
+// Error classes
+export {
+  TokenCreationError,
+  generateSuggestion,
+} from './errors.js';
+
+export type {
+  TokenCreationErrorCode,
+  TokenCreationErrorContext,
+} from './errors.js';
+
 // Types
 export type {
   Proof,
@@ -132,6 +143,7 @@ export type {
   WalletEventHandlers,
   AsyncStorageStatic,
   CreateTokenResult,
+  TokenPreview,
   Logger,
   LogEntry,
   LogLevel,

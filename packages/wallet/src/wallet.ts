@@ -12,11 +12,14 @@ import type {
   MintQuote,
   WalletEventType,
   WalletEventHandlers,
+  TokenPreview,
 } from './types.js';
 import type { StorageAdapter } from './storage/interface.js';
 import { smallestFirst } from './selectors/smallest.js';
 import { checkProofState } from './checkstate.js';
 import { createLogger, type Logger } from './logger.js';
+import { TokenCreationError, generateSuggestion } from './errors.js';
+import { getDenominations } from './inspect.js';
 
 /**
  * Cashu wallet with state management.
@@ -170,30 +173,189 @@ export class Wallet {
   // ===========================================================================
 
   /**
+   * Preview what would happen when creating a token.
+   * 
+   * This method performs a dry-run of token creation without modifying state.
+   * Use it to check if a token can be created and what proofs would be used.
+   * 
+   * @param amount - Amount in credits to preview
+   * @returns Preview with selection details and any issues
+   * 
+   * @example
+   * ```ts
+   * const preview = wallet.previewToken(5);
+   * 
+   * if (preview.canCreate) {
+   *   console.log(`Will use ${preview.selectedProofs.length} proofs`);
+   *   console.log(`Change: ${preview.change} credits`);
+   *   if (preview.needsSwap) {
+   *     console.log('Will require a mint swap');
+   *   }
+   * } else {
+   *   console.log(`Cannot create token: ${preview.issue}`);
+   *   console.log(`Suggestion: ${preview.suggestion}`);
+   * }
+   * ```
+   */
+  previewToken(amount: number): TokenPreview {
+    // Build denomination info for diagnostics
+    const denominations = getDenominations(this._proofs);
+    const denominationCounts: Record<number, number> = {};
+    for (const proof of this._proofs) {
+      denominationCounts[proof.amount] = (denominationCounts[proof.amount] || 0) + 1;
+    }
+
+    // Check for invalid amount
+    if (amount <= 0) {
+      return {
+        canCreate: false,
+        amount,
+        availableBalance: this.balance,
+        availableDenominations: denominations,
+        denominationCounts,
+        selectedProofs: [],
+        selectedTotal: 0,
+        change: 0,
+        needsSwap: false,
+        issue: 'Amount must be positive',
+        suggestion: generateSuggestion('INVALID_AMOUNT', {
+          requestedAmount: amount,
+          availableBalance: this.balance,
+          availableDenominations: denominations,
+        }),
+      };
+    }
+
+    // Check for insufficient balance
+    if (this.balance < amount) {
+      return {
+        canCreate: false,
+        amount,
+        availableBalance: this.balance,
+        availableDenominations: denominations,
+        denominationCounts,
+        selectedProofs: [],
+        selectedTotal: 0,
+        change: 0,
+        needsSwap: false,
+        issue: `Insufficient balance: need ${amount}, have ${this.balance}`,
+        suggestion: generateSuggestion('INSUFFICIENT_BALANCE', {
+          requestedAmount: amount,
+          availableBalance: this.balance,
+          availableDenominations: denominations,
+        }),
+      };
+    }
+
+    // Try to select proofs
+    const selected = this.config.proofSelector(this._proofs, amount);
+    if (!selected) {
+      return {
+        canCreate: false,
+        amount,
+        availableBalance: this.balance,
+        availableDenominations: denominations,
+        denominationCounts,
+        selectedProofs: [],
+        selectedTotal: 0,
+        change: 0,
+        needsSwap: false,
+        issue: `Could not select proofs for amount ${amount}`,
+        suggestion: generateSuggestion('SELECTION_FAILED', {
+          requestedAmount: amount,
+          availableBalance: this.balance,
+          availableDenominations: denominations,
+        }),
+      };
+    }
+
+    const selectedTotal = selected.reduce((sum, p) => sum + p.amount, 0);
+    const change = selectedTotal - amount;
+    const needsSwap = selectedTotal !== amount;
+
+    return {
+      canCreate: true,
+      amount,
+      availableBalance: this.balance,
+      availableDenominations: denominations,
+      denominationCounts,
+      selectedProofs: [...selected], // Return copy
+      selectedTotal,
+      change,
+      needsSwap,
+    };
+  }
+
+  /**
    * Create an encoded token for the specified amount.
    * 
    * @param amount - Amount in credits
    * @returns Encoded token (cashuB format)
-   * @throws Error if insufficient balance
+   * @throws TokenCreationError with detailed context if creation fails
+   * 
+   * @example
+   * ```ts
+   * try {
+   *   const token = await wallet.createToken(5);
+   *   // Use token for payment
+   * } catch (err) {
+   *   if (TokenCreationError.isTokenCreationError(err)) {
+   *     console.log(err.userMessage);
+   *     console.log('Suggestion:', err.suggestion);
+   *   }
+   * }
+   * ```
    */
   async createToken(amount: number): Promise<string> {
     this.log.info('Creating token', { amount, currentBalance: this.balance });
 
+    // Get denomination info for error context
+    const denominations = getDenominations(this._proofs);
+    const denominationCounts: Record<number, number> = {};
+    for (const proof of this._proofs) {
+      denominationCounts[proof.amount] = (denominationCounts[proof.amount] || 0) + 1;
+    }
+
+    const errorContext = {
+      requestedAmount: amount,
+      availableBalance: this.balance,
+      availableDenominations: denominations,
+      denominationCounts,
+    };
+
     if (amount <= 0) {
       this.log.error('Invalid amount', { amount });
-      throw new Error('Amount must be positive');
+      throw new TokenCreationError('Amount must be positive', {
+        ...errorContext,
+        code: 'INVALID_AMOUNT',
+        suggestion: generateSuggestion('INVALID_AMOUNT', errorContext),
+      });
     }
 
     if (this.balance < amount) {
       this.log.error('Insufficient balance', { needed: amount, have: this.balance });
-      throw new Error(`Insufficient balance: need ${amount}, have ${this.balance}`);
+      throw new TokenCreationError(
+        `Insufficient balance: need ${amount}, have ${this.balance}`,
+        {
+          ...errorContext,
+          code: 'INSUFFICIENT_BALANCE',
+          suggestion: generateSuggestion('INSUFFICIENT_BALANCE', errorContext),
+        }
+      );
     }
 
     // Select proofs
     const selected = this.config.proofSelector(this._proofs, amount);
     if (!selected) {
       this.log.error('Could not select proofs', { amount, availableProofs: this._proofs.map(p => p.amount) });
-      throw new Error(`Could not select proofs for amount ${amount}`);
+      throw new TokenCreationError(
+        `Could not select proofs for amount ${amount}`,
+        {
+          ...errorContext,
+          code: 'SELECTION_FAILED',
+          suggestion: generateSuggestion('SELECTION_FAILED', errorContext),
+        }
+      );
     }
 
     const selectedTotal = selected.reduce((sum, p) => sum + p.amount, 0);

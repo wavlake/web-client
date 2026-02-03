@@ -134,3 +134,34 @@ export interface CreateTokenResult {
   /** Remaining proofs after token creation */
   change: Proof[];
 }
+
+/**
+ * Preview of token creation without modifying wallet state.
+ * 
+ * Use `wallet.previewToken(amount)` to get this information
+ * before committing to token creation.
+ */
+export interface TokenPreview {
+  /** Whether the token can be created */
+  canCreate: boolean;
+  /** Requested amount */
+  amount: number;
+  /** Current wallet balance */
+  availableBalance: number;
+  /** Available denominations in wallet (sorted ascending) */
+  availableDenominations: number[];
+  /** Count of proofs by denomination */
+  denominationCounts: Record<number, number>;
+  /** Proofs that would be selected */
+  selectedProofs: Proof[];
+  /** Total value of selected proofs */
+  selectedTotal: number;
+  /** Change that would be returned (selectedTotal - amount) */
+  change: number;
+  /** Whether a mint swap would be required */
+  needsSwap: boolean;
+  /** Human-readable issue description (if canCreate is false) */
+  issue?: string;
+  /** Actionable suggestion for resolving the issue */
+  suggestion?: string;
+}
