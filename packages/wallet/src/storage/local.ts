@@ -6,12 +6,13 @@
 
 import type { Proof } from '@cashu/cashu-ts';
 import type { StorageAdapter } from './interface.js';
+import type { SerializedTransaction } from '../history.js';
 
 /**
  * localStorage-based storage adapter.
  * 
- * Persists proofs to browser localStorage. Data survives page refreshes
- * and browser restarts, but is scoped to the origin.
+ * Persists proofs and transaction history to browser localStorage. 
+ * Data survives page refreshes and browser restarts, but is scoped to the origin.
  * 
  * **Security note:** localStorage is accessible to any JavaScript on the
  * same origin. Do not use in contexts where untrusted scripts may run.
@@ -24,6 +25,7 @@ import type { StorageAdapter } from './interface.js';
  */
 export class LocalStorageAdapter implements StorageAdapter {
   private readonly key: string;
+  private readonly historyKey: string;
 
   /**
    * Create a new localStorage adapter.
@@ -31,6 +33,7 @@ export class LocalStorageAdapter implements StorageAdapter {
    */
   constructor(key: string) {
     this.key = key;
+    this.historyKey = `${key}:history`;
   }
 
   async load(): Promise<Proof[]> {
@@ -85,6 +88,63 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
 
     localStorage.removeItem(this.key);
+  }
+
+  async loadHistory(): Promise<SerializedTransaction[]> {
+    // Guard for SSR
+    if (typeof localStorage === 'undefined') {
+      return [];
+    }
+
+    try {
+      const data = localStorage.getItem(this.historyKey);
+      if (!data) {
+        return [];
+      }
+      
+      const parsed = JSON.parse(data);
+      
+      if (!Array.isArray(parsed)) {
+        console.warn(`LocalStorageAdapter: Invalid history data at key "${this.historyKey}"`);
+        return [];
+      }
+      
+      return parsed;
+    } catch (error) {
+      console.warn(`LocalStorageAdapter: Failed to load history from "${this.historyKey}"`, error);
+      return [];
+    }
+  }
+
+  async saveHistory(history: SerializedTransaction[]): Promise<void> {
+    // Guard for SSR
+    if (typeof localStorage === 'undefined') {
+      console.warn('LocalStorageAdapter: localStorage not available');
+      return;
+    }
+
+    try {
+      localStorage.setItem(this.historyKey, JSON.stringify(history));
+    } catch (error) {
+      // Handle quota exceeded - history is non-critical, just warn
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.warn('LocalStorageAdapter: History storage quota exceeded, truncating');
+        // Try saving just the last 100 transactions
+        const truncated = history.slice(-100);
+        localStorage.setItem(this.historyKey, JSON.stringify(truncated));
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async clearHistory(): Promise<void> {
+    // Guard for SSR
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+
+    localStorage.removeItem(this.historyKey);
   }
 
   /**
