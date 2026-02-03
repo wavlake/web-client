@@ -19,7 +19,7 @@ import { smallestFirst } from './selectors/smallest.js';
 import { checkProofState } from './checkstate.js';
 import { createLogger, type Logger } from './logger.js';
 import { TokenCreationError, generateSuggestion } from './errors.js';
-import { getDenominations } from './inspect.js';
+import { getDenominations, getDefragStats, type DefragStats } from './inspect.js';
 
 /**
  * Cashu wallet with state management.
@@ -520,6 +520,135 @@ export class Wallet {
     this.emit('balance-change', this.balance);
 
     return spent.length;
+  }
+
+  // ===========================================================================
+  // Defragmentation
+  // ===========================================================================
+
+  /**
+   * Get defragmentation statistics for the wallet.
+   * 
+   * @returns Defragmentation stats and recommendation
+   * 
+   * @example
+   * ```ts
+   * const stats = wallet.getDefragStats();
+   * console.log(`Fragmentation: ${(stats.fragmentation * 100).toFixed(0)}%`);
+   * console.log(`Recommendation: ${stats.recommendation}`);
+   * ```
+   */
+  getDefragStats(): DefragStats {
+    return getDefragStats(this._proofs);
+  }
+
+  /**
+   * Check if defragmentation is recommended.
+   * 
+   * @returns true if defragmentation would be beneficial
+   */
+  needsDefragmentation(): boolean {
+    const stats = this.getDefragStats();
+    return stats.recommendation === 'recommended' || stats.recommendation === 'urgent';
+  }
+
+  /**
+   * Defragment wallet proofs by consolidating them with the mint.
+   * 
+   * Fragmentation occurs when a wallet accumulates many small proofs
+   * from repeated change operations. This method swaps all proofs
+   * with the mint to get back an optimal set of denominations.
+   * 
+   * **Note:** This operation involves a network request to the mint.
+   * The total balance should remain unchanged (minus any mint fees).
+   * 
+   * @returns Defragmentation result with before/after proof counts
+   * @throws Error if wallet has no proofs or defragmentation fails
+   * 
+   * @example
+   * ```ts
+   * // Check if defragmentation is needed
+   * if (wallet.needsDefragmentation()) {
+   *   console.log('Defragmenting wallet...');
+   *   const result = await wallet.defragment();
+   *   console.log(`Reduced ${result.previousProofCount} proofs to ${result.newProofCount}`);
+   * }
+   * 
+   * // Or just defragment unconditionally
+   * const result = await wallet.defragment();
+   * ```
+   */
+  async defragment(): Promise<{
+    previousProofCount: number;
+    newProofCount: number;
+    previousBalance: number;
+    newBalance: number;
+    saved: number;
+  }> {
+    if (this._proofs.length === 0) {
+      this.log.info('Defragment: No proofs to defragment');
+      return {
+        previousProofCount: 0,
+        newProofCount: 0,
+        previousBalance: 0,
+        newBalance: 0,
+        saved: 0,
+      };
+    }
+
+    const previousProofCount = this._proofs.length;
+    const previousBalance = this.balance;
+
+    this.log.info('Starting defragmentation', {
+      proofCount: previousProofCount,
+      balance: previousBalance,
+      proofAmounts: this._proofs.map(p => p.amount),
+    });
+
+    try {
+      // Swap all proofs with mint to get optimal denominations
+      // The mint will return the same total value in optimal proof sizes
+      const result = await this.cashuWallet.send(previousBalance, this._proofs);
+
+      // Combine send and keep proofs - the mint's "send" is what we're getting back
+      // In a self-swap scenario, we're sending to ourselves
+      const newProofs = [...result.send, ...result.keep];
+      const newBalance = newProofs.reduce((sum, p) => sum + p.amount, 0);
+
+      this.log.debug('Defragmentation swap result', {
+        sendCount: result.send.length,
+        sendAmounts: result.send.map(p => p.amount),
+        keepCount: result.keep.length,
+        keepAmounts: result.keep.map(p => p.amount),
+        newBalance,
+      });
+
+      // Update wallet with new proofs
+      this._proofs = newProofs;
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
+
+      const saved = previousProofCount - newProofs.length;
+      this.log.info('Defragmentation complete', {
+        previousProofCount,
+        newProofCount: newProofs.length,
+        previousBalance,
+        newBalance,
+        saved,
+      });
+
+      return {
+        previousProofCount,
+        newProofCount: newProofs.length,
+        previousBalance,
+        newBalance,
+        saved,
+      };
+    } catch (error) {
+      this.log.error('Defragmentation failed', { error: String(error) });
+      throw error;
+    }
   }
 
   // ===========================================================================

@@ -249,4 +249,56 @@ describe('Wallet', () => {
       await expect(wallet.load()).resolves.not.toThrow();
     });
   });
+
+  describe('defragmentation', () => {
+    it('should return defrag stats', async () => {
+      await wallet.load();
+      
+      const stats = wallet.getDefragStats();
+      
+      expect(stats.proofCount).toBe(4);
+      expect(stats.balance).toBe(18);
+      expect(typeof stats.fragmentation).toBe('number');
+    });
+
+    it('should check if defragmentation needed', async () => {
+      await wallet.load();
+      
+      const needed = wallet.needsDefragmentation();
+      
+      // Our test proofs are fairly optimal, so should be false
+      expect(typeof needed).toBe('boolean');
+    });
+
+    it('should defragment empty wallet gracefully', async () => {
+      const emptyStorage = new MemoryAdapter([]);
+      const emptyWallet = new Wallet({
+        mintUrl: MINT_URL,
+        storage: emptyStorage,
+      });
+      
+      await emptyWallet.load();
+      const result = await emptyWallet.defragment();
+      
+      expect(result.previousProofCount).toBe(0);
+      expect(result.newProofCount).toBe(0);
+      expect(result.saved).toBe(0);
+    });
+
+    it('should defragment and emit events', async () => {
+      await wallet.load();
+      
+      const balanceHandler = vi.fn();
+      const proofsHandler = vi.fn();
+      wallet.on('balance-change', balanceHandler);
+      wallet.on('proofs-change', proofsHandler);
+      
+      const result = await wallet.defragment();
+      
+      expect(result.previousProofCount).toBe(4);
+      expect(result.previousBalance).toBe(18);
+      expect(balanceHandler).toHaveBeenCalled();
+      expect(proofsHandler).toHaveBeenCalled();
+    });
+  });
 });
