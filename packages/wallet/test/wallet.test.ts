@@ -54,6 +54,7 @@ vi.mock('@cashu/cashu-ts', async () => {
 // Imports after mock
 import { Wallet } from '../src/wallet.js';
 import { MemoryAdapter } from '../src/storage/memory.js';
+import { WalletError } from '../src/errors.js';
 
 // Constants
 const MINT_URL = 'https://mint.test.com';
@@ -161,15 +162,32 @@ describe('Wallet', () => {
   });
 
   describe('createToken', () => {
-    it('should throw for insufficient balance', async () => {
+    it('should throw WalletError for insufficient balance', async () => {
       await wallet.load();
-      await expect(wallet.createToken(100)).rejects.toThrow('Insufficient balance');
+      try {
+        await wallet.createToken(100);
+        expect.fail('Should have thrown');
+      } catch (err) {
+        expect(WalletError.isInsufficientBalance(err)).toBe(true);
+        expect((err as WalletError).details.required).toBe(100);
+        expect((err as WalletError).details.available).toBe(18);
+      }
     });
 
-    it('should throw for zero/negative amount', async () => {
+    it('should throw WalletError for zero/negative amount', async () => {
       await wallet.load();
-      await expect(wallet.createToken(0)).rejects.toThrow('Amount must be positive');
-      await expect(wallet.createToken(-5)).rejects.toThrow('Amount must be positive');
+      try {
+        await wallet.createToken(0);
+        expect.fail('Should have thrown');
+      } catch (err) {
+        expect(WalletError.isInvalidAmount(err)).toBe(true);
+      }
+      try {
+        await wallet.createToken(-5);
+        expect.fail('Should have thrown');
+      } catch (err) {
+        expect(WalletError.isInvalidAmount(err)).toBe(true);
+      }
     });
 
     it('should return encoded token', async () => {

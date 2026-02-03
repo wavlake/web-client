@@ -83,6 +83,19 @@ export type {
   ProofSummary,
 } from './inspect.js';
 
+// Error classes
+export {
+  WalletError,
+  toWalletError,
+  needsMoreFunds,
+} from './errors.js';
+
+export type {
+  WalletErrorCode,
+  WalletErrorDetails,
+  WalletErrorInfo,
+} from './errors.js';
+
 // Health check utilities
 export {
   checkWalletHealth,
