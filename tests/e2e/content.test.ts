@@ -170,16 +170,14 @@ describe('Phase 2: AudioHandler (/v1/audio)', () => {
       console.log('✅ Paid audio stream started');
     });
 
-    it('should return change headers when overpaying', async () => {
+    it('should accept overpayment as artist tip', async () => {
+      // Note: Server-side change was removed in Phase 5 of Sat-to-USD PRD.
+      // Overpayment now becomes artist tip instead of being returned as change.
       if (!testToken) return;
 
       const result = await requestAudio(testTracks.paid.dtag, testToken);
-      
-      if (result.ok && result.changeToken) {
-        expect(result.changeToken.startsWith('cashuB')).toBe(true);
-        expect(result.changeAmount).toBeGreaterThan(0);
-        console.log('✅ Change in headers:', result.changeAmount, 'credits');
-      }
+      expect(result.ok).toBe(true);
+      console.log('✅ Overpayment accepted (becomes artist tip)');
     });
   });
 });

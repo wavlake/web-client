@@ -95,8 +95,7 @@ export async function requestAudio(
   status: number;
   contentType?: string;
   contentLength?: number;
-  changeToken?: string;
-  changeAmount?: number;
+  // Note: changeToken/changeAmount removed - server-side change was removed in Phase 5
   error?: {
     code: string;
     message: string;
@@ -122,8 +121,8 @@ export async function requestAudio(
       status: response.status,
       contentType: response.headers.get('content-type') || undefined,
       contentLength: parseInt(response.headers.get('content-length') || '0'),
-      changeToken: response.headers.get('X-Cashu-Change-Token') || undefined,
-      changeAmount: parseInt(response.headers.get('X-Cashu-Change-Amount') || '0') || undefined,
+      // Note: Server-side change was removed in Phase 5 of Sat-to-USD PRD.
+      // Overpayment now becomes artist tip. Clients should prepare exact denominations.
     };
   } else {
     const json = await response.json();
