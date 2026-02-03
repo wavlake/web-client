@@ -5,6 +5,7 @@
  */
 
 import type { Proof } from '@cashu/cashu-ts';
+import type { SerializedTransaction } from '../history.js';
 
 /**
  * Storage adapter interface for persisting proofs.
@@ -44,4 +45,22 @@ export interface StorageAdapter {
    * Clear all stored proofs.
    */
   clear(): Promise<void>;
+
+  /**
+   * Load transaction history from storage.
+   * Optional - if not implemented, history is in-memory only.
+   */
+  loadHistory?(): Promise<SerializedTransaction[]>;
+
+  /**
+   * Save transaction history to storage.
+   * Optional - if not implemented, history is in-memory only.
+   */
+  saveHistory?(history: SerializedTransaction[]): Promise<void>;
+
+  /**
+   * Clear transaction history.
+   * Optional - if not implemented, clearing proofs won't clear history.
+   */
+  clearHistory?(): Promise<void>;
 }

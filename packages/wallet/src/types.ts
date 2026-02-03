@@ -6,27 +6,20 @@
 
 import type { Proof } from '@cashu/cashu-ts';
 import type { Logger } from './logger.js';
+import type { TransactionRecord } from './history.js';
+import type { StorageAdapter } from './storage/interface.js';
 
 // Re-export Proof type for convenience
 export type { Proof } from '@cashu/cashu-ts';
 export type { Logger, LogEntry, LogLevel } from './logger.js';
+export type { TransactionRecord } from './history.js';
 
 // ============================================================================
 // Storage Types
 // ============================================================================
 
-/**
- * Storage adapter interface for persisting proofs.
- * Implement this to add custom storage backends.
- */
-export interface StorageAdapter {
-  /** Load proofs from storage */
-  load(): Promise<Proof[]>;
-  /** Save proofs to storage */
-  save(proofs: Proof[]): Promise<void>;
-  /** Clear all stored proofs */
-  clear(): Promise<void>;
-}
+// Re-export StorageAdapter from the storage module (includes optional history methods)
+export type { StorageAdapter } from './storage/interface.js';
 
 /**
  * AsyncStorage interface (React Native compatible)
@@ -81,6 +74,8 @@ export interface WalletConfig {
   unit?: string;
   /** Enable debug logging (true for console, or provide custom Logger) */
   debug?: boolean | Logger;
+  /** Record transaction history (default: true) */
+  recordHistory?: boolean;
 }
 
 /**
@@ -112,7 +107,7 @@ export interface MintQuote {
 /**
  * Wallet event types
  */
-export type WalletEventType = 'balance-change' | 'proofs-change' | 'error';
+export type WalletEventType = 'balance-change' | 'proofs-change' | 'transaction' | 'error';
 
 /**
  * Wallet event handlers
@@ -120,6 +115,7 @@ export type WalletEventType = 'balance-change' | 'proofs-change' | 'error';
 export interface WalletEventHandlers {
   'balance-change': (balance: number) => void;
   'proofs-change': (proofs: Proof[]) => void;
+  'transaction': (tx: TransactionRecord) => void;
   'error': (error: Error) => void;
 }
 

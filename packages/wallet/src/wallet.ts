@@ -20,6 +20,7 @@ import { checkProofState } from './checkstate.js';
 import { createLogger, type Logger } from './logger.js';
 import { TokenCreationError, generateSuggestion } from './errors.js';
 import { getDenominations, getDefragStats, type DefragStats } from './inspect.js';
+import { TransactionStore, type TransactionRecord, type HistoryQueryOptions, type HistoryResult } from './history.js';
 
 /**
  * Cashu wallet with state management.
@@ -47,12 +48,13 @@ import { getDenominations, getDefragStats, type DefragStats } from './inspect.js
  * ```
  */
 export class Wallet {
-  private readonly config: WalletConfig & { proofSelector: typeof smallestFirst; autoReceiveChange: boolean; unit: string };
+  private readonly config: WalletConfig & { proofSelector: typeof smallestFirst; autoReceiveChange: boolean; unit: string; recordHistory: boolean };
   private readonly mint: Mint;
   private readonly cashuWallet: CashuWallet;
   private readonly log: Logger;
   private _proofs: Proof[] = [];
   private _loaded = false;
+  private _historyStore: TransactionStore;
   private eventHandlers: Map<WalletEventType, Set<Function>> = new Map();
 
   constructor(config: WalletConfig) {
@@ -61,15 +63,18 @@ export class Wallet {
       proofSelector: config.proofSelector ?? smallestFirst,
       autoReceiveChange: config.autoReceiveChange ?? true,
       unit: config.unit ?? 'usd',
+      recordHistory: config.recordHistory ?? true,
     };
 
     this.log = createLogger(config.debug);
     this.mint = new Mint(this.config.mintUrl);
     this.cashuWallet = new CashuWallet(this.mint, { unit: this.config.unit });
+    this._historyStore = new TransactionStore();
 
     this.log.info('Wallet initialized', { 
       mintUrl: this.config.mintUrl, 
       unit: this.config.unit,
+      recordHistory: this.config.recordHistory,
     });
   }
 
@@ -125,11 +130,25 @@ export class Wallet {
     try {
       await this.cashuWallet.loadMint();
       this._proofs = await this.config.storage.load();
+      
+      // Load history if storage supports it
+      if (this.config.recordHistory && this.config.storage.loadHistory) {
+        try {
+          const historyData = await this.config.storage.loadHistory();
+          this._historyStore = TransactionStore.deserialize(historyData);
+          this.log.debug('Transaction history loaded', { count: this._historyStore.count });
+        } catch (historyError) {
+          this.log.warn('Failed to load transaction history', { error: String(historyError) });
+          // Non-fatal - continue with empty history
+        }
+      }
+      
       this._loaded = true;
       this.log.info('Wallet loaded', { 
         proofCount: this._proofs.length, 
         balance: this.balance,
         proofAmounts: this._proofs.map(p => p.amount),
+        historyCount: this._historyStore.count,
       });
       this.emit('proofs-change', this._proofs);
       this.emit('balance-change', this.balance);
@@ -157,12 +176,39 @@ export class Wallet {
   }
 
   /**
-   * Clear all proofs from wallet and storage.
+   * Save transaction history to storage.
+   * Called automatically after transactions if recordHistory is true.
    */
-  async clear(): Promise<void> {
-    this.log.info('Clearing wallet', { previousBalance: this.balance });
+  private async saveHistory(): Promise<void> {
+    if (!this.config.recordHistory || !this.config.storage.saveHistory) {
+      return;
+    }
+    
+    try {
+      await this.config.storage.saveHistory(this._historyStore.serialize());
+      this.log.debug('History saved', { count: this._historyStore.count });
+    } catch (error) {
+      // Non-fatal - just log
+      this.log.warn('Failed to save transaction history', { error: String(error) });
+    }
+  }
+
+  /**
+   * Clear all proofs from wallet and storage.
+   * @param clearHistory - Whether to also clear transaction history (default: false)
+   */
+  async clear(clearHistory: boolean = false): Promise<void> {
+    this.log.info('Clearing wallet', { previousBalance: this.balance, clearHistory });
     this._proofs = [];
     await this.config.storage.clear();
+    
+    if (clearHistory) {
+      this._historyStore.clear();
+      if (this.config.storage.clearHistory) {
+        await this.config.storage.clearHistory();
+      }
+    }
+    
     this.emit('proofs-change', this._proofs);
     this.emit('balance-change', 0);
     this.log.info('Wallet cleared');
@@ -290,6 +336,8 @@ export class Wallet {
    * Create an encoded token for the specified amount.
    * 
    * @param amount - Amount in credits
+   * @param memo - Optional memo/description for the transaction
+   * @param metadata - Optional metadata (e.g., { dtag: 'track-123' })
    * @returns Encoded token (cashuB format)
    * @throws TokenCreationError with detailed context if creation fails
    * 
@@ -306,8 +354,8 @@ export class Wallet {
    * }
    * ```
    */
-  async createToken(amount: number): Promise<string> {
-    this.log.info('Creating token', { amount, currentBalance: this.balance });
+  async createToken(amount: number, memo?: string, metadata?: Record<string, unknown>): Promise<string> {
+    this.log.info('Creating token', { amount, currentBalance: this.balance, memo });
 
     // Get denomination info for error context
     const denominations = getDenominations(this._proofs);
@@ -366,6 +414,8 @@ export class Wallet {
       needsSwap: selectedTotal !== amount,
     });
 
+    let token: string;
+
     // If exact match, just encode the selected proofs
     if (selectedTotal === amount) {
       this.log.debug('Exact match - no swap needed');
@@ -375,40 +425,52 @@ export class Wallet {
       this.emit('proofs-change', this._proofs);
       this.emit('balance-change', this.balance);
 
-      const token = getEncodedTokenV4({
+      token = getEncodedTokenV4({
         mint: this.config.mintUrl,
         proofs: selected,
         unit: this.config.unit,
       });
       this.log.info('Token created (exact)', { amount, newBalance: this.balance });
-      return token;
+    } else {
+      // Need to swap for exact amount
+      this.log.debug('Swapping for exact amount', { sending: selectedTotal, target: amount });
+      const result = await this.cashuWallet.send(amount, selected);
+      
+      this.log.debug('Swap result', { 
+        sendCount: result.send.length,
+        sendAmounts: result.send.map(p => p.amount),
+        keepCount: result.keep.length,
+        keepAmounts: result.keep.map(p => p.amount),
+      });
+      
+      // Update proofs: remove selected, add change (keep)
+      this._proofs = this._proofs.filter(p => !selected.includes(p));
+      this._proofs.push(...result.keep);
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
+
+      // Encode the send proofs as token
+      token = getEncodedTokenV4({
+        mint: this.config.mintUrl,
+        proofs: result.send,
+        unit: this.config.unit,
+      });
+      this.log.info('Token created (with swap)', { amount, newBalance: this.balance });
     }
 
-    // Need to swap for exact amount
-    this.log.debug('Swapping for exact amount', { sending: selectedTotal, target: amount });
-    const result = await this.cashuWallet.send(amount, selected);
-    
-    this.log.debug('Swap result', { 
-      sendCount: result.send.length,
-      sendAmounts: result.send.map(p => p.amount),
-      keepCount: result.keep.length,
-      keepAmounts: result.keep.map(p => p.amount),
-    });
-    
-    // Update proofs: remove selected, add change (keep)
-    this._proofs = this._proofs.filter(p => !selected.includes(p));
-    this._proofs.push(...result.keep);
-    await this.save();
-    this.emit('proofs-change', this._proofs);
-    this.emit('balance-change', this.balance);
+    // Record transaction
+    if (this.config.recordHistory) {
+      const tx = this._historyStore.add({
+        type: 'send',
+        amount: -amount, // Negative for outgoing
+        memo,
+        metadata,
+      });
+      this.emit('transaction', tx);
+      await this.saveHistory();
+    }
 
-    // Encode the send proofs as token
-    const token = getEncodedTokenV4({
-      mint: this.config.mintUrl,
-      proofs: result.send,
-      unit: this.config.unit,
-    });
-    this.log.info('Token created (with swap)', { amount, newBalance: this.balance });
     return token;
   }
 
@@ -416,10 +478,12 @@ export class Wallet {
    * Receive a token and add proofs to wallet.
    * 
    * @param token - Encoded token (cashuA/B format)
+   * @param memo - Optional memo/description for the transaction
+   * @param metadata - Optional metadata
    * @returns Amount received
    */
-  async receiveToken(token: string): Promise<number> {
-    this.log.info('Receiving token', { tokenPrefix: token.substring(0, 20) + '...' });
+  async receiveToken(token: string, memo?: string, metadata?: Record<string, unknown>): Promise<number> {
+    this.log.info('Receiving token', { tokenPrefix: token.substring(0, 20) + '...', memo });
     
     const decoded = getDecodedToken(token);
     this.log.debug('Token decoded', { 
@@ -458,16 +522,28 @@ export class Wallet {
     this.emit('proofs-change', this._proofs);
     this.emit('balance-change', this.balance);
 
+    // Record transaction
+    if (this.config.recordHistory) {
+      const tx = this._historyStore.add({
+        type: 'receive',
+        amount, // Positive for incoming
+        memo,
+        metadata,
+      });
+      this.emit('transaction', tx);
+      await this.saveHistory();
+    }
+
     this.log.info('Token received', { amount, newBalance: this.balance });
     return amount;
   }
 
   /**
    * Receive change token (convenience method).
-   * Same as receiveToken but with clearer intent.
+   * Same as receiveToken but records as 'receive' with change context.
    */
   async receiveChange(changeToken: string): Promise<number> {
-    return this.receiveToken(changeToken);
+    return this.receiveToken(changeToken, 'Change received');
   }
 
   // ===========================================================================
@@ -705,7 +781,79 @@ export class Wallet {
     this.emit('proofs-change', this._proofs);
     this.emit('balance-change', this.balance);
 
-    return proofs.reduce((sum, p) => sum + p.amount, 0);
+    const mintedAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+
+    // Record transaction
+    if (this.config.recordHistory) {
+      const tx = this._historyStore.add({
+        type: 'mint',
+        amount: mintedAmount,
+        memo: 'Minted from Lightning',
+        metadata: { quoteId },
+      });
+      this.emit('transaction', tx);
+      await this.saveHistory();
+    }
+
+    return mintedAmount;
+  }
+
+  // ===========================================================================
+  // Transaction History
+  // ===========================================================================
+
+  /**
+   * Query transaction history with filtering and pagination.
+   * 
+   * @example
+   * ```ts
+   * // Get last 10 transactions
+   * const { records, hasMore } = wallet.getHistory({ limit: 10 });
+   * 
+   * // Get only payments
+   * const payments = wallet.getHistory({ types: ['send'] });
+   * 
+   * // Get transactions from last 24 hours
+   * const recent = wallet.getHistory({
+   *   since: new Date(Date.now() - 24 * 60 * 60 * 1000),
+   * });
+   * ```
+   */
+  getHistory(options?: HistoryQueryOptions): HistoryResult {
+    return this._historyStore.query(options);
+  }
+
+  /**
+   * Get a single transaction by ID.
+   */
+  getTransaction(id: string): TransactionRecord | null {
+    return this._historyStore.get(id);
+  }
+
+  /**
+   * Get transaction summary for a time period.
+   * 
+   * @example
+   * ```ts
+   * const summary = wallet.getHistorySummary();
+   * console.log(`Total spent: ${summary.totalSent}`);
+   * console.log(`Total received: ${summary.totalReceived}`);
+   * ```
+   */
+  getHistorySummary(options?: { since?: Date; until?: Date }): {
+    totalSent: number;
+    totalReceived: number;
+    netChange: number;
+    transactionCount: number;
+  } {
+    return this._historyStore.getSummary(options);
+  }
+
+  /**
+   * Total number of recorded transactions.
+   */
+  get historyCount(): number {
+    return this._historyStore.count;
   }
 
   // ===========================================================================

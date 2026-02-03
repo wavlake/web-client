@@ -138,6 +138,23 @@ export type {
   TokenCreationErrorContext,
 } from './errors.js';
 
+// Transaction history
+export {
+  TransactionStore,
+  formatTransaction,
+  groupByDate,
+  calculateRunningBalance,
+} from './history.js';
+
+export type {
+  TransactionType,
+  TransactionStatus,
+  TransactionRecord,
+  HistoryQueryOptions,
+  HistoryResult,
+  SerializedTransaction,
+} from './history.js';
+
 // Types
 export type {
   Proof,

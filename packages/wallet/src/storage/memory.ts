@@ -7,6 +7,7 @@
 
 import type { Proof } from '@cashu/cashu-ts';
 import type { StorageAdapter } from './interface.js';
+import type { SerializedTransaction } from '../history.js';
 
 /**
  * In-memory storage adapter.
@@ -27,6 +28,7 @@ import type { StorageAdapter } from './interface.js';
  */
 export class MemoryAdapter implements StorageAdapter {
   private proofs: Proof[];
+  private history: SerializedTransaction[];
 
   /**
    * Create a new memory adapter.
@@ -35,6 +37,7 @@ export class MemoryAdapter implements StorageAdapter {
   constructor(initialProofs: Proof[] = []) {
     // Deep clone to prevent external mutation
     this.proofs = JSON.parse(JSON.stringify(initialProofs));
+    this.history = [];
   }
 
   async load(): Promise<Proof[]> {
@@ -51,6 +54,18 @@ export class MemoryAdapter implements StorageAdapter {
     this.proofs = [];
   }
 
+  async loadHistory(): Promise<SerializedTransaction[]> {
+    return JSON.parse(JSON.stringify(this.history));
+  }
+
+  async saveHistory(history: SerializedTransaction[]): Promise<void> {
+    this.history = JSON.parse(JSON.stringify(history));
+  }
+
+  async clearHistory(): Promise<void> {
+    this.history = [];
+  }
+
   /**
    * Get current proof count (for testing).
    */
@@ -63,5 +78,12 @@ export class MemoryAdapter implements StorageAdapter {
    */
   get balance(): number {
     return this.proofs.reduce((sum, p) => sum + p.amount, 0);
+  }
+
+  /**
+   * Get current history count (for testing).
+   */
+  get historyCount(): number {
+    return this.history.length;
   }
 }
