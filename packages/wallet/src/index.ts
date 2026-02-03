@@ -77,10 +77,15 @@ export {
   groupByKeyset,
   getDenominations,
   formatBalance,
+  // Defragmentation analysis
+  getDefragStats,
+  needsDefragmentation,
 } from './inspect.js';
 
 export type {
   ProofSummary,
+  DefragStats,
+  DefragOptions,
 } from './inspect.js';
 
 // Health check utilities

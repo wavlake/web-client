@@ -13,6 +13,8 @@ import {
   groupByKeyset,
   getDenominations,
   formatBalance,
+  getDefragStats,
+  needsDefragmentation,
 } from '../src/inspect.js';
 
 // Test proofs
@@ -256,6 +258,118 @@ describe('inspect utilities', () => {
 
     it('should combine unit and decimals', () => {
       expect(formatBalance(99.9, { unit: 'USD', decimals: 2 })).toBe('99.90 USD');
+    });
+  });
+
+  describe('getDefragStats', () => {
+    it('should handle empty proofs', () => {
+      const stats = getDefragStats([]);
+      
+      expect(stats.proofCount).toBe(0);
+      expect(stats.balance).toBe(0);
+      expect(stats.fragmentation).toBe(0);
+      expect(stats.recommendation).toBe('none');
+    });
+
+    it('should calculate basic stats correctly', () => {
+      const stats = getDefragStats(mockProofs);
+      
+      expect(stats.proofCount).toBe(5);
+      expect(stats.balance).toBe(31);
+      expect(stats.averageProofSize).toBeCloseTo(6.2, 1);
+    });
+
+    it('should detect highly fragmented wallet', () => {
+      // Many small proofs = high fragmentation
+      const fragmentedProofs: Proof[] = Array.from({ length: 20 }, (_, i) => ({
+        C: `c${i}`,
+        amount: 1,
+        id: 'k',
+        secret: `s${i}`,
+      })) as Proof[];
+      
+      const stats = getDefragStats(fragmentedProofs);
+      
+      expect(stats.proofCount).toBe(20);
+      expect(stats.balance).toBe(20);
+      expect(stats.smallProofCount).toBe(20);
+      expect(stats.fragmentation).toBeGreaterThan(0.5);
+      expect(['recommended', 'urgent']).toContain(stats.recommendation);
+    });
+
+    it('should recognize well-optimized wallet', () => {
+      // Optimal: using power-of-2 denominations
+      const optimalProofs: Proof[] = [
+        { C: 'c1', amount: 16, id: 'k', secret: 's1' },
+        { C: 'c2', amount: 8, id: 'k', secret: 's2' },
+        { C: 'c3', amount: 4, id: 'k', secret: 's3' },
+      ] as Proof[];
+      
+      const stats = getDefragStats(optimalProofs);
+      
+      expect(stats.proofCount).toBe(3);
+      expect(stats.balance).toBe(28);
+      expect(stats.smallProofCount).toBe(0); // 4 is >= threshold
+      expect(stats.fragmentation).toBeLessThan(0.3);
+      expect(stats.recommendation).toBe('none');
+    });
+
+    it('should count small proofs with custom threshold', () => {
+      const stats = getDefragStats(mockProofs, { smallThreshold: 8 });
+      
+      // 1, 2, 4 are all < 8
+      expect(stats.smallProofCount).toBe(3);
+    });
+
+    it('should estimate new proof count after defrag', () => {
+      // 20 x 1-credit proofs = 20 credits
+      // Optimal for 20 would be: 16 + 4 = 2 proofs
+      const fragmentedProofs: Proof[] = Array.from({ length: 20 }, (_, i) => ({
+        C: `c${i}`,
+        amount: 1,
+        id: 'k',
+        secret: `s${i}`,
+      })) as Proof[];
+      
+      const stats = getDefragStats(fragmentedProofs);
+      
+      expect(stats.estimatedNewProofCount).toBeLessThan(stats.proofCount);
+      expect(stats.estimatedNewProofCount).toBeLessThanOrEqual(5); // 16+4 or similar
+    });
+  });
+
+  describe('needsDefragmentation', () => {
+    it('should return false for empty wallet', () => {
+      expect(needsDefragmentation([])).toBe(false);
+    });
+
+    it('should return false for small wallet', () => {
+      const smallWallet: Proof[] = [
+        { C: 'c1', amount: 10, id: 'k', secret: 's1' },
+      ] as Proof[];
+      
+      expect(needsDefragmentation(smallWallet)).toBe(false);
+    });
+
+    it('should return true for highly fragmented wallet', () => {
+      const fragmentedProofs: Proof[] = Array.from({ length: 15 }, (_, i) => ({
+        C: `c${i}`,
+        amount: 1,
+        id: 'k',
+        secret: `s${i}`,
+      })) as Proof[];
+      
+      expect(needsDefragmentation(fragmentedProofs)).toBe(true);
+    });
+
+    it('should return false for optimal wallet', () => {
+      const optimalProofs: Proof[] = [
+        { C: 'c1', amount: 64, id: 'k', secret: 's1' },
+        { C: 'c2', amount: 32, id: 'k', secret: 's2' },
+        { C: 'c3', amount: 16, id: 'k', secret: 's3' },
+      ] as Proof[];
+      
+      expect(needsDefragmentation(optimalProofs)).toBe(false);
     });
   });
 });

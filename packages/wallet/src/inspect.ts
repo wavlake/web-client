@@ -278,3 +278,170 @@ export function formatBalance(
   
   return unit ? `${formatted} ${unit}` : formatted;
 }
+
+// ============================================================================
+// Defragmentation Analysis
+// ============================================================================
+
+/**
+ * Defragmentation analysis result
+ */
+export interface DefragStats {
+  /** Total number of proofs */
+  proofCount: number;
+  /** Total balance */
+  balance: number;
+  /** Average proof size */
+  averageProofSize: number;
+  /** Fragmentation score (0-1, higher = more fragmented) */
+  fragmentation: number;
+  /** Number of "small" proofs (below threshold) */
+  smallProofCount: number;
+  /** Recommended action */
+  recommendation: 'none' | 'low' | 'recommended' | 'urgent';
+  /** Estimated proof count after defragmentation */
+  estimatedNewProofCount: number;
+}
+
+/**
+ * Options for defragmentation analysis
+ */
+export interface DefragOptions {
+  /** 
+   * Proofs smaller than this are considered "small" (default: 4)
+   * Based on typical Cashu power-of-2 denominations
+   */
+  smallThreshold?: number;
+  /**
+   * Target denominations for optimal proof set (default: [1, 2, 4, 8, 16, 32, 64])
+   */
+  targetDenominations?: number[];
+}
+
+/**
+ * Analyze proof fragmentation and get defragmentation recommendations
+ * 
+ * Fragmentation happens when a wallet accumulates many small proofs
+ * from repeated change operations. This slows down payment flows
+ * because more proofs need to be selected and swapped.
+ * 
+ * @param proofs - Current wallet proofs
+ * @param options - Analysis options
+ * @returns Defragmentation statistics and recommendation
+ * 
+ * @example
+ * ```ts
+ * const stats = getDefragStats(wallet.proofs);
+ * 
+ * console.log(`Fragmentation: ${(stats.fragmentation * 100).toFixed(0)}%`);
+ * console.log(`Recommendation: ${stats.recommendation}`);
+ * 
+ * if (stats.recommendation === 'recommended' || stats.recommendation === 'urgent') {
+ *   await wallet.defragment();
+ * }
+ * ```
+ */
+export function getDefragStats(proofs: Proof[], options: DefragOptions = {}): DefragStats {
+  const {
+    smallThreshold = 4,
+    targetDenominations = [1, 2, 4, 8, 16, 32, 64],
+  } = options;
+
+  if (proofs.length === 0) {
+    return {
+      proofCount: 0,
+      balance: 0,
+      averageProofSize: 0,
+      fragmentation: 0,
+      smallProofCount: 0,
+      recommendation: 'none',
+      estimatedNewProofCount: 0,
+    };
+  }
+
+  const balance = proofs.reduce((sum, p) => sum + p.amount, 0);
+  const proofCount = proofs.length;
+  const averageProofSize = balance / proofCount;
+  const smallProofCount = proofs.filter(p => p.amount < smallThreshold).length;
+
+  // Calculate optimal proof count for this balance
+  // Using power-of-2 denominations, we can represent any amount with log2(amount) proofs
+  const optimalProofCount = calculateOptimalProofCount(balance, targetDenominations);
+
+  // Fragmentation score: how many extra proofs we have vs optimal
+  // 0 = optimal, 1 = very fragmented
+  const fragmentation = Math.min(1, Math.max(0, 
+    (proofCount - optimalProofCount) / Math.max(proofCount, 1)
+  ));
+
+  // Determine recommendation based on fragmentation and proof count
+  let recommendation: DefragStats['recommendation'] = 'none';
+  
+  if (proofCount <= 3) {
+    recommendation = 'none';
+  } else if (fragmentation > 0.7 || smallProofCount > 10) {
+    recommendation = 'urgent';
+  } else if (fragmentation > 0.5 || smallProofCount > 5) {
+    recommendation = 'recommended';
+  } else if (fragmentation > 0.3 || smallProofCount > 2) {
+    recommendation = 'low';
+  }
+
+  return {
+    proofCount,
+    balance,
+    averageProofSize,
+    fragmentation,
+    smallProofCount,
+    recommendation,
+    estimatedNewProofCount: optimalProofCount,
+  };
+}
+
+/**
+ * Check if defragmentation is recommended
+ * 
+ * @param proofs - Current wallet proofs
+ * @param options - Analysis options
+ * @returns true if defragmentation is recommended or urgent
+ * 
+ * @example
+ * ```ts
+ * if (needsDefragmentation(wallet.proofs)) {
+ *   console.log('Consider running wallet.defragment()');
+ * }
+ * ```
+ */
+export function needsDefragmentation(proofs: Proof[], options: DefragOptions = {}): boolean {
+  const stats = getDefragStats(proofs, options);
+  return stats.recommendation === 'recommended' || stats.recommendation === 'urgent';
+}
+
+/**
+ * Calculate the optimal number of proofs for a given balance
+ * using power-of-2 denominations
+ */
+function calculateOptimalProofCount(balance: number, denominations: number[]): number {
+  if (balance <= 0) return 0;
+  
+  // Sort denominations descending
+  const sorted = [...denominations].sort((a, b) => b - a);
+  
+  let remaining = balance;
+  let count = 0;
+  
+  for (const denom of sorted) {
+    while (remaining >= denom) {
+      remaining -= denom;
+      count++;
+    }
+  }
+  
+  // If there's a remainder, we need proofs for that too
+  // (this handles edge cases where balance doesn't divide evenly)
+  if (remaining > 0) {
+    count += Math.ceil(Math.log2(remaining + 1));
+  }
+  
+  return Math.max(1, count);
+}
