@@ -6,6 +6,8 @@
  * - NIP-60 Nostr relays
  */
 
+/* eslint-disable react-refresh/only-export-components */
+
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import type { Proof } from '@cashu/cashu-ts';
 import { Wallet, LocalStorageAdapter, MemoryAdapter } from '@wavlake/wallet';
