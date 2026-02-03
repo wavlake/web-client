@@ -205,16 +205,13 @@ describe('Payment Flow Tests', () => {
       console.log('✅ Audio stream started');
       console.log(`   Content-Type: ${result.contentType}`);
       console.log(`   Content-Length: ${result.contentLength}`);
-
-      // Handle change via headers
-      if (result.changeToken) {
-        const changeProofs = getDecodedToken(result.changeToken).proofs;
-        addChangeProofs(changeProofs);
-        console.log(`   Change received: ${result.changeAmount} credits`);
-      }
+      // Note: Server-side change was removed in Phase 5 of Sat-to-USD PRD.
+      // Overpayment becomes artist tip. Clients should prepare exact denominations.
     });
 
-    it('should return change in headers when overpaying', async () => {
+    it('should accept overpayment as artist tip', async () => {
+      // Note: Server-side change was removed in Phase 5 of Sat-to-USD PRD.
+      // Overpayment now becomes artist tip instead of being returned as change.
       const overpayAmount = TRACK_PRICE + 1;
       
       if (!hasBalance(overpayAmount)) {
@@ -225,7 +222,7 @@ describe('Payment Flow Tests', () => {
       const withdrawal = withdrawProofs(overpayAmount);
       expect(withdrawal).not.toBeNull();
       
-      console.log(`📤 Overpaying AudioHandler: ${withdrawal!.total} credits`);
+      console.log(`📤 Overpaying AudioHandler: ${withdrawal!.total} credits (tip: 1 credit)`);
 
       const result = await requestAudio(PAID_TRACK, withdrawal!.token);
 
@@ -234,23 +231,7 @@ describe('Payment Flow Tests', () => {
       }
 
       expect(result.ok).toBe(true);
-      
-      // Change may or may not be returned depending on API config
-      if (result.changeToken) {
-        expect(result.changeAmount).toBeGreaterThan(0);
-        const expectedChange = withdrawal!.total - TRACK_PRICE;
-        expect(result.changeAmount).toBe(expectedChange);
-        
-        console.log('✅ AudioHandler change returned in headers');
-        console.log(`   X-Cashu-Change-Amount: ${result.changeAmount}`);
-
-        // Add change back
-        const changeProofs = getDecodedToken(result.changeToken).proofs;
-        addChangeProofs(changeProofs);
-      } else {
-        console.log('ℹ️ No change headers (server may not support header-based change)');
-        console.log(`   Overpaid by: ${withdrawal!.total - TRACK_PRICE} credits`);
-      }
+      console.log('✅ Overpayment accepted (becomes artist tip)');
     });
   });
 
