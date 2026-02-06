@@ -44,7 +44,7 @@ vi.mock('@wavlake/wallet', async () => {
 import { checkWalletHealth, quickHealthCheck } from '@wavlake/wallet';
 
 // Mock wallet
-const createMockWallet = () => ({
+const createMockWallet = (overrides: Record<string, unknown> = {}) => ({
   balance: 100,
   proofs: [
     { C: 'c1', amount: 50, id: 'keyset1', secret: 's1' },
@@ -52,17 +52,26 @@ const createMockWallet = () => ({
   ],
   isLoaded: true,
   mintUrl: 'https://mint.test.com',
+  unit: 'usd',
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
+  previewToken: vi.fn().mockReturnValue({ canCreate: true, amount: 5, selectedProofs: [], change: 0, needsSwap: false }),
   receiveToken: vi.fn().mockResolvedValue(5),
   createMintQuote: vi.fn().mockResolvedValue({ id: 'quote-123', request: 'lnbc100...', amount: 100 }),
   mintTokens: vi.fn().mockResolvedValue(100),
   checkProofs: vi.fn().mockResolvedValue({ valid: [], spent: [] }),
   pruneSpent: vi.fn().mockResolvedValue(0),
+  getDefragStats: vi.fn().mockReturnValue({ proofCount: 2, balance: 100, fragmentation: 0, recommendation: 'none' }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({ previousProofCount: 2, newProofCount: 2, saved: 0 }),
+  getHistory: vi.fn().mockReturnValue({ records: [], hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
   on: vi.fn(),
   off: vi.fn(),
+  ...overrides,
 });
 
 describe('useWalletHealth', () => {
@@ -254,9 +263,17 @@ describe('useWalletHealth', () => {
   });
 
   it('should require mintUrl', async () => {
+    // Create a wallet with empty mintUrl
+    const emptyMintWallet = createMockWallet({ mintUrl: '' });
+    const emptyMintWrapper = ({ children }: { children: React.ReactNode }) => (
+      <WalletProvider wallet={emptyMintWallet as any}>
+        {children}
+      </WalletProvider>
+    );
+
     const { result } = renderHook(
       () => useWalletHealth({ checkOnMount: false }),
-      { wrapper }
+      { wrapper: emptyMintWrapper }
     );
 
     await act(async () => {

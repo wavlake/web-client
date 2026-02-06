@@ -79,6 +79,7 @@ export interface UseWalletHealthOptions {
  * 
  * @example
  * ```tsx
+ * // Simple usage - mintUrl from context (no config needed)
  * function HealthIndicator() {
  *   const { 
  *     isHealthy, 
@@ -137,13 +138,11 @@ export function useWalletHealth(options: UseWalletHealthOptions = {}): WalletHea
     checkOnMount = true,
   } = options;
 
-  // Get wallet context
-  const { proofs, isReady } = useWalletContext();
+  // Get wallet context - now includes mintUrl
+  const { proofs, isReady, mintUrl: contextMintUrl } = useWalletContext();
   
-  // We need to get mintUrl from the wallet, but WalletContext doesn't expose it
-  // So we require it as a prop or use a default placeholder
-  // TODO: Consider adding mintUrl to WalletContext
-  const mintUrl = customMintUrl ?? '';
+  // Use custom mintUrl if provided, otherwise fall back to wallet context
+  const mintUrl = customMintUrl ?? contextMintUrl;
 
   // State
   const [health, setHealth] = useState<WalletHealth | null>(null);

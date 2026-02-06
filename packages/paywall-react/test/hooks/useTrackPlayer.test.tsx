@@ -22,15 +22,23 @@ const createMockWallet = (balance = 100) => ({
   proofs: [{ C: 'c1', amount: balance, id: 'keyset1', secret: 's1' }],
   isLoaded: true,
   mintUrl: 'https://mint.test.com',
+  unit: 'usd',
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
+  previewToken: vi.fn().mockReturnValue({ canCreate: true, amount: 5, selectedProofs: [], change: 0, needsSwap: false }),
   receiveToken: vi.fn().mockResolvedValue(3),
   createMintQuote: vi.fn(),
   mintTokens: vi.fn(),
   checkProofs: vi.fn(),
   pruneSpent: vi.fn(),
+  getDefragStats: vi.fn().mockReturnValue({ proofCount: 1, balance, fragmentation: 0, recommendation: 'none' }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({ previousProofCount: 1, newProofCount: 1, saved: 0 }),
+  getHistory: vi.fn().mockReturnValue({ records: [], hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -99,7 +107,7 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockWallet.createToken).toHaveBeenCalledWith(5);
+      expect(mockWallet.createToken).toHaveBeenCalledWith(5, undefined, undefined);
       expect(mockClient.requestContent).toHaveBeenCalledWith('track-123', 'cashuBtoken');
       expect(result.current.audioUrl).toBe('https://cdn.wavlake.com/signed-url');
       expect(result.current.grantId).toBe('grant-123');
@@ -123,7 +131,7 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
+      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken', undefined, undefined);
     });
 
     it('should continue if change handling fails', async () => {
@@ -169,7 +177,7 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken', undefined);
       expect(URL.createObjectURL).toHaveBeenCalled();
       expect(result.current.audioUrl).toBe(mockObjectURL);
       expect(result.current.grantId).toBe(null); // No grant with audio endpoint
@@ -194,7 +202,7 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
+      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken', undefined, undefined);
     });
 
     it('should not receive change when autoReceiveChange is false', async () => {
