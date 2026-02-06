@@ -106,6 +106,16 @@ export {
   type UseWalletHealthOptions,
 } from './hooks/useWalletHealth.js';
 
+export {
+  usePaymentPreview,
+  formatEfficiency,
+  getEfficiencyEmoji,
+  type PaymentPreview,
+  type WalletHealthSummary,
+  type UsePaymentPreviewResult,
+  type UsePaymentPreviewOptions,
+} from './hooks/usePaymentPreview.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
