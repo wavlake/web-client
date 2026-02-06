@@ -104,6 +104,13 @@ export class Wallet {
   }
 
   /**
+   * Wallet unit (e.g., 'usd', 'sat').
+   */
+  get unit(): string {
+    return this.config.unit;
+  }
+
+  /**
    * Whether wallet has been loaded from storage.
    */
   get isLoaded(): boolean {

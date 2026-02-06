@@ -13,10 +13,13 @@ const createMockWallet = () => ({
   proofs: [{ C: 'c1', amount: 100, id: 'keyset1', secret: 's1' }],
   isLoaded: false,
   mintUrl: 'https://mint.test.com',
+  unit: 'usd',
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
+  previewToken: vi.fn().mockReturnValue({ canCreate: true, amount: 5, selectedProofs: [], change: 0, needsSwap: false }),
   receiveToken: vi.fn().mockResolvedValue(5),
   createMintQuote: vi.fn().mockResolvedValue({
     id: 'quote-123',
@@ -26,6 +29,11 @@ const createMockWallet = () => ({
   mintTokens: vi.fn().mockResolvedValue(100),
   checkProofs: vi.fn().mockResolvedValue({ valid: [], spent: [] }),
   pruneSpent: vi.fn().mockResolvedValue(0),
+  getDefragStats: vi.fn().mockReturnValue({ proofCount: 1, balance: 100, fragmentation: 0, recommendation: 'none' }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({ previousProofCount: 1, newProofCount: 1, saved: 0 }),
+  getHistory: vi.fn().mockReturnValue({ records: [], hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -107,7 +115,7 @@ describe('useWallet', () => {
       expect(token).toBe('cashuBtoken');
     });
 
-    expect(mockWallet.createToken).toHaveBeenCalledWith(10);
+    expect(mockWallet.createToken).toHaveBeenCalledWith(10, undefined, undefined);
   });
 
   it('should expose receiveToken action', async () => {
@@ -122,7 +130,7 @@ describe('useWallet', () => {
       expect(amount).toBe(5);
     });
 
-    expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBtoken');
+    expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBtoken', undefined, undefined);
   });
 
   it('should expose createMintQuote action', async () => {
@@ -172,5 +180,94 @@ describe('useWallet', () => {
     });
 
     expect(result.current.error?.message).toBe('Insufficient balance');
+  });
+
+  // New tests for expanded context
+  describe('expanded context features', () => {
+    it('should expose mintUrl and unit', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      expect(result.current.mintUrl).toBe('https://mint.test.com');
+      expect(result.current.unit).toBe('usd');
+    });
+
+    it('should expose previewToken', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      const preview = result.current.previewToken(5);
+      expect(preview.canCreate).toBe(true);
+      expect(mockWallet.previewToken).toHaveBeenCalledWith(5);
+    });
+
+    it('should expose defragmentation methods', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      // Test getDefragStats
+      const stats = result.current.getDefragStats();
+      expect(stats.recommendation).toBe('none');
+      expect(mockWallet.getDefragStats).toHaveBeenCalled();
+
+      // Test needsDefragmentation
+      expect(result.current.needsDefragmentation()).toBe(false);
+      expect(mockWallet.needsDefragmentation).toHaveBeenCalled();
+    });
+
+    it('should expose defragment action', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      await act(async () => {
+        const defragResult = await result.current.defragment();
+        expect(defragResult.saved).toBe(0);
+      });
+
+      expect(mockWallet.defragment).toHaveBeenCalled();
+    });
+
+    it('should expose history methods', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      // Test getHistory
+      const history = result.current.getHistory({ limit: 10 });
+      expect(history.records).toEqual([]);
+      expect(mockWallet.getHistory).toHaveBeenCalledWith({ limit: 10 });
+
+      // Test getTransaction
+      const tx = result.current.getTransaction('tx-123');
+      expect(tx).toBeNull();
+      expect(mockWallet.getTransaction).toHaveBeenCalledWith('tx-123');
+
+      // Test historyCount
+      expect(result.current.historyCount).toBe(0);
+    });
+
+    it('should expose underlying wallet instance', async () => {
+      const { result } = renderHook(() => useWallet(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isReady).toBe(true);
+      });
+
+      expect(result.current.wallet).toBe(mockWallet);
+    });
   });
 });

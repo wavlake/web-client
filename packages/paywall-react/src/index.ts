@@ -115,6 +115,13 @@ export type {
   MintStatus,
   ProofHealth,
   HealthCheckOptions,
+  // New types for expanded context
+  TokenPreview,
+  DefragStats,
+  DefragOptions,
+  TransactionRecord,
+  HistoryQueryOptions,
+  HistoryResult,
 } from '@wavlake/wallet';
 
 export type {

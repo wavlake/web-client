@@ -16,13 +16,29 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import type { Wallet, Proof, MintQuote, CheckProofsResult } from '@wavlake/wallet';
+import type { 
+  Wallet, 
+  Proof, 
+  MintQuote, 
+  CheckProofsResult,
+  TokenPreview,
+} from '@wavlake/wallet';
+import {
+  type DefragStats,
+  type TransactionRecord,
+  type HistoryQueryOptions,
+  type HistoryResult,
+} from '@wavlake/wallet';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface WalletContextValue {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+  
   /** Current balance in credits */
   balance: number;
   /** Current proofs (readonly copy) */
@@ -33,20 +49,81 @@ export interface WalletContextValue {
   isLoading: boolean;
   /** Last error, if any */
   error: Error | null;
+  
+  // ---------------------------------------------------------------------------
+  // Wallet Configuration (new)
+  // ---------------------------------------------------------------------------
+  
+  /** Mint URL for this wallet */
+  mintUrl: string;
+  /** Unit for this wallet (e.g., 'usd', 'sat') */
+  unit: string;
+  
+  // ---------------------------------------------------------------------------
+  // Token Operations
+  // ---------------------------------------------------------------------------
+  
   /** Create a token for the specified amount */
-  createToken: (amount: number) => Promise<string>;
+  createToken: (amount: number, memo?: string, metadata?: Record<string, unknown>) => Promise<string>;
+  /** Preview what would happen when creating a token (dry-run) */
+  previewToken: (amount: number) => TokenPreview;
   /** Receive a token and add to wallet */
-  receiveToken: (token: string) => Promise<number>;
+  receiveToken: (token: string, memo?: string, metadata?: Record<string, unknown>) => Promise<number>;
+  
+  // ---------------------------------------------------------------------------
+  // Minting
+  // ---------------------------------------------------------------------------
+  
   /** Create a mint quote (Lightning invoice) */
   createMintQuote: (amount: number) => Promise<MintQuote>;
   /** Mint tokens from a paid quote */
   mintTokens: (quote: MintQuote | string) => Promise<number>;
+  
+  // ---------------------------------------------------------------------------
+  // Proof Management
+  // ---------------------------------------------------------------------------
+  
   /** Check which proofs are still valid */
   checkProofs: () => Promise<CheckProofsResult>;
   /** Remove spent proofs */
   pruneSpent: () => Promise<number>;
   /** Clear all proofs from wallet */
-  clear: () => Promise<void>;
+  clear: (clearHistory?: boolean) => Promise<void>;
+  
+  // ---------------------------------------------------------------------------
+  // Defragmentation (new)
+  // ---------------------------------------------------------------------------
+  
+  /** Get defragmentation statistics */
+  getDefragStats: () => DefragStats;
+  /** Check if defragmentation is recommended */
+  needsDefragmentation: () => boolean;
+  /** Defragment wallet proofs by consolidating with mint */
+  defragment: () => Promise<{
+    previousProofCount: number;
+    newProofCount: number;
+    previousBalance: number;
+    newBalance: number;
+    saved: number;
+  }>;
+  
+  // ---------------------------------------------------------------------------
+  // Transaction History (new)
+  // ---------------------------------------------------------------------------
+  
+  /** Query transaction history with filtering and pagination */
+  getHistory: (options?: HistoryQueryOptions) => HistoryResult;
+  /** Get a single transaction by ID */
+  getTransaction: (id: string) => TransactionRecord | null;
+  /** Total number of recorded transactions */
+  historyCount: number;
+  
+  // ---------------------------------------------------------------------------
+  // Advanced (new)
+  // ---------------------------------------------------------------------------
+  
+  /** Direct access to underlying wallet (use with caution) */
+  wallet: Wallet;
 }
 
 // ============================================================================
@@ -192,11 +269,11 @@ export function WalletProvider({
   }, [wallet]);
 
   // Actions
-  const createToken = useCallback(async (amount: number) => {
+  const createToken = useCallback(async (amount: number, memo?: string, metadata?: Record<string, unknown>) => {
     setIsLoading(true);
     setError(null);
     try {
-      return await walletRef.current.createToken(amount);
+      return await walletRef.current.createToken(amount, memo, metadata);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
@@ -206,11 +283,15 @@ export function WalletProvider({
     }
   }, []);
 
-  const receiveToken = useCallback(async (token: string) => {
+  const previewToken = useCallback((amount: number) => {
+    return walletRef.current.previewToken(amount);
+  }, []);
+
+  const receiveToken = useCallback(async (token: string, memo?: string, metadata?: Record<string, unknown>) => {
     setIsLoading(true);
     setError(null);
     try {
-      return await walletRef.current.receiveToken(token);
+      return await walletRef.current.receiveToken(token, memo, metadata);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
@@ -276,11 +357,11 @@ export function WalletProvider({
     }
   }, []);
 
-  const clear = useCallback(async () => {
+  const clear = useCallback(async (clearHistory?: boolean) => {
     setIsLoading(true);
     setError(null);
     try {
-      await walletRef.current.clear();
+      await walletRef.current.clear(clearHistory);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
@@ -290,19 +371,69 @@ export function WalletProvider({
     }
   }, []);
 
+  // Defragmentation methods
+  const getDefragStats = useCallback(() => {
+    return walletRef.current.getDefragStats();
+  }, []);
+
+  const needsDefragmentation = useCallback(() => {
+    return walletRef.current.needsDefragmentation();
+  }, []);
+
+  const defragment = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await walletRef.current.defragment();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // History methods
+  const getHistory = useCallback((options?: HistoryQueryOptions) => {
+    return walletRef.current.getHistory(options);
+  }, []);
+
+  const getTransaction = useCallback((id: string) => {
+    return walletRef.current.getTransaction(id);
+  }, []);
+
   const value: WalletContextValue = {
+    // State
     balance,
     proofs,
     isReady,
     isLoading,
     error,
+    // Config
+    mintUrl: wallet.mintUrl,
+    unit: wallet.unit,
+    // Token operations
     createToken,
+    previewToken,
     receiveToken,
+    // Minting
     createMintQuote,
     mintTokens,
+    // Proof management
     checkProofs,
     pruneSpent,
     clear,
+    // Defragmentation
+    getDefragStats,
+    needsDefragmentation,
+    defragment,
+    // History
+    getHistory,
+    getTransaction,
+    historyCount: wallet.historyCount,
+    // Advanced
+    wallet,
   };
 
   return (
