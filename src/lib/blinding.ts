@@ -180,3 +180,72 @@ export async function getKeysetId(): Promise<string> {
   const wallet = await getWallet();
   return wallet.keysetId;
 }
+
+interface ValidateProofsOptions {
+  throwOnError?: boolean;
+}
+
+/**
+ * Validate proofs against the mint to check if they're spent.
+ * Used for recovery and startup validation.
+ */
+export async function validateProofs(
+  proofs: Proof[],
+  options: ValidateProofsOptions = {},
+): Promise<{
+  unspent: Proof[];
+  spentSecrets: string[];
+}> {
+  const { throwOnError = false } = options;
+
+  if (proofs.length === 0) {
+    return { unspent: [], spentSecrets: [] };
+  }
+
+  const wallet = await getWallet();
+
+  debugLog('wallet', 'Validating proofs at mint', {
+    count: proofs.length,
+    total: proofs.reduce((s, p) => s + p.amount, 0),
+  });
+
+  try {
+    // checkProofsStates returns array of { secret, state, witness? }
+    // state: 'UNSPENT' | 'SPENT' | 'PENDING'
+    const states = await wallet.checkProofsStates(proofs);
+
+    const spentSecrets: string[] = [];
+    const unspent: Proof[] = [];
+
+    for (let i = 0; i < proofs.length; i++) {
+      const proof = proofs[i];
+      const state = states[i];
+
+      if (state.state === 'UNSPENT') {
+        unspent.push(proof);
+      } else {
+        // SPENT or PENDING - treat as unavailable
+        spentSecrets.push(proof.secret);
+      }
+    }
+
+    debugLog('wallet', 'Proof validation complete', {
+      total: proofs.length,
+      unspent: unspent.length,
+      spent: spentSecrets.length,
+      unspentAmount: unspent.reduce((s, p) => s + p.amount, 0),
+    });
+
+    return { unspent, spentSecrets };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    debugLog('wallet', 'Proof validation failed', { error: message });
+
+    if (throwOnError) {
+      throw err;
+    }
+
+    // If we can't validate, assume all proofs are unspent (safer than losing them)
+    return { unspent: proofs, spentSecrets: [] };
+  }
+}
