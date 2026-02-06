@@ -187,10 +187,19 @@ function WalletPanel() {
           )}
         </div>
 
-        {pendingProofs.length > 0 && (
+        {Object.keys(pendingProofs).length > 0 && (
           <div>
-            <span className="text-xs text-yellow-400 block mb-1">Pending ({pendingProofs.length})</span>
-            <JsonViewer data={pendingProofs.map(p => ({ amount: p.amount }))} maxHeight="60px" />
+            <span className="text-xs text-yellow-400 block mb-1">
+              Pending ({Object.values(pendingProofs).reduce((sum, p) => sum + p.proofs.length, 0)} proofs)
+            </span>
+            <JsonViewer 
+              data={Object.entries(pendingProofs).map(([trackDtag, p]) => ({ 
+                track: trackDtag.slice(0, 8) + '...', 
+                amount: p.proofs.reduce((s, proof) => s + proof.amount, 0),
+                proofCount: p.proofs.length,
+              }))} 
+              maxHeight="60px" 
+            />
           </div>
         )}
 

@@ -251,8 +251,9 @@ export default function TrackList() {
       const startTime = performance.now();
       
       // Select proofs that cover the amount (may be more than needed)
-      const proofs = selectProofsForAmount(price);
-      if (proofs) {
+      const selection = selectProofsForAmount(price);
+      if (selection) {
+        const proofs = selection.selected;
         try {
           const totalSending = proofs.reduce((s, p) => s + p.amount, 0);
           
@@ -337,8 +338,9 @@ export default function TrackList() {
       const startTime = performance.now();
       
       // Select proofs that cover the amount
-      const proofs = selectProofsForAmount(price);
-      if (proofs) {
+      const selection = selectProofsForAmount(price);
+      if (selection) {
+        const proofs = selection.selected;
         try {
           // Swap to exact denomination, keeping change
           const swapResult = await jitSwap(price, proofs);
@@ -430,13 +432,14 @@ export default function TrackList() {
     const { track, price } = paymentState;
 
     // Select proofs for payment
-    const proofs = selectProofsForAmount(price);
-    if (!proofs || proofs.length === 0) {
+    const selection = selectProofsForAmount(price);
+    if (!selection || selection.selected.length === 0) {
       debugLog('error', 'No proofs available for payment');
       setIsProcessing(false);
       return;
     }
 
+    const proofs = selection.selected;
     debugLog('wallet', `Spending ${price} credits`, {
       proofCount: proofs.length,
       proofAmounts: proofs.map(p => p.amount),

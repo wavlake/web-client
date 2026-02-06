@@ -118,9 +118,15 @@ export const useTokenCacheStore = create<TokenCacheState>()(
           }
         }
 
-        // Get proofs from wallet store
+        // Get available proofs from wallet store (excludes pending)
         const walletStore = useWalletStore.getState();
-        let proofs = walletStore.proofs;
+        const pendingSecrets = new Set<string>();
+        for (const pending of Object.values(walletStore.pendingProofs)) {
+          for (const proof of pending.proofs) {
+            pendingSecrets.add(proof.secret);
+          }
+        }
+        let proofs = walletStore.proofs.filter(p => !pendingSecrets.has(p.secret));
         const balance = proofs.reduce((s, p) => s + p.amount, 0);
 
         // How many tokens do we need?
