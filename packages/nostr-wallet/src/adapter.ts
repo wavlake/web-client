@@ -10,7 +10,8 @@ import type { StorageAdapter } from '@wavlake/wallet';
 import type NDK from '@nostr-dev-kit/ndk';
 import type { NDKEvent, NDKSigner, NDKUser, NDKFilter } from '@nostr-dev-kit/ndk';
 import type { Nip60AdapterConfig, TokenEventContent, WalletEventContent } from './types.js';
-import { TOKEN_KIND, WALLET_KIND } from './types.js';
+import type { SerializedTransaction } from '@wavlake/wallet';
+import { TOKEN_KIND, WALLET_KIND, HISTORY_KIND } from './types.js';
 
 /**
  * NIP-60 storage adapter.
@@ -49,6 +50,9 @@ export class Nip60Adapter implements StorageAdapter {
   
   /** Track current token event IDs for deletion on save */
   private _currentTokenEventIds: Set<string> = new Set();
+  
+  /** Track current history event IDs for deletion on save */
+  private _currentHistoryEventIds: Set<string> = new Set();
   
   /** P2PK keypair for nutzap receiving (lazy loaded from wallet event) */
   private _p2pkPrivkey: string | null = null;
@@ -157,6 +161,139 @@ export class Nip60Adapter implements StorageAdapter {
   async clear(): Promise<void> {
     await this.deleteTokenEvents([...this._currentTokenEventIds]);
     this._currentTokenEventIds.clear();
+  }
+
+  // ===========================================================================
+  // History Storage (Optional Interface Methods)
+  // ===========================================================================
+
+  /**
+   * Load transaction history from Nostr relays.
+   * Fetches kind:7376 events, decrypts, and returns transactions.
+   */
+  async loadHistory(): Promise<SerializedTransaction[]> {
+    const user = await this.getUser();
+    const pubkey = user.pubkey;
+
+    const filter: NDKFilter = {
+      kinds: [HISTORY_KIND as number],
+      authors: [pubkey],
+    };
+
+    const events = await this.ndk.fetchEvents(filter, {
+      closeOnEose: true,
+    });
+
+    const transactions: SerializedTransaction[] = [];
+    this._currentHistoryEventIds.clear();
+
+    for (const event of events) {
+      try {
+        const content = await this.decryptContent<{
+          transactions: SerializedTransaction[];
+          mint: string;
+          unit?: string;
+        }>(event);
+        
+        // Filter by mint and unit
+        if (content.mint !== this.mintUrl) {
+          continue;
+        }
+        if (content.unit && content.unit !== this.unit) {
+          continue;
+        }
+
+        // Track this event ID
+        this._currentHistoryEventIds.add(event.id);
+        
+        // Add transactions
+        if (content.transactions && Array.isArray(content.transactions)) {
+          transactions.push(...content.transactions);
+        }
+      } catch (error) {
+        console.warn(`Nip60Adapter: Failed to decrypt history event ${event.id}`, error);
+      }
+    }
+
+    // Sort by timestamp (newest first) and deduplicate by ID
+    const seen = new Set<string>();
+    const deduped = transactions
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .filter(tx => {
+        if (seen.has(tx.id)) return false;
+        seen.add(tx.id);
+        return true;
+      });
+
+    return deduped;
+  }
+
+  /**
+   * Save transaction history to Nostr relays.
+   * Creates a new kind:7376 event and deletes old ones.
+   */
+  async saveHistory(history: SerializedTransaction[]): Promise<void> {
+    // Delete old history events first
+    await this.deleteHistoryEvents([...this._currentHistoryEventIds]);
+
+    // If no history, we're done
+    if (history.length === 0) {
+      this._currentHistoryEventIds.clear();
+      return;
+    }
+
+    // Create new history event
+    const content = {
+      transactions: history,
+      mint: this.mintUrl,
+      unit: this.unit,
+      del: [...this._currentHistoryEventIds],
+    };
+
+    const event = await this.createEncryptedEvent(HISTORY_KIND, content);
+    
+    try {
+      const relays = await event.publish();
+      console.log(`[nip60] History event published to ${relays?.size || 0} relays`);
+    } catch (publishError) {
+      console.warn('[nip60] History publish warning:', publishError);
+    }
+
+    // Update tracked event IDs
+    this._currentHistoryEventIds.clear();
+    this._currentHistoryEventIds.add(event.id);
+  }
+
+  /**
+   * Clear transaction history from Nostr relays.
+   */
+  async clearHistory(): Promise<void> {
+    await this.deleteHistoryEvents([...this._currentHistoryEventIds]);
+    this._currentHistoryEventIds.clear();
+  }
+
+  /**
+   * Delete history events using NIP-09.
+   */
+  private async deleteHistoryEvents(eventIds: string[]): Promise<void> {
+    if (eventIds.length === 0) {
+      return;
+    }
+
+    const NDKEvent = (await import('@nostr-dev-kit/ndk')).NDKEvent;
+    const deleteEvent = new NDKEvent(this.ndk);
+    deleteEvent.kind = 5; // NIP-09 deletion
+    deleteEvent.tags = [
+      ['k', String(HISTORY_KIND)],
+      ...eventIds.map(id => ['e', id]),
+    ];
+    
+    await deleteEvent.sign(this.signer);
+    try {
+      await deleteEvent.publish();
+    } catch (e) {
+      console.warn('[nip60] History delete event publish warning:', e);
+    }
   }
 
   // ===========================================================================
@@ -369,6 +506,11 @@ export class Nip60Adapter implements StorageAdapter {
   /** Get tracked token event IDs */
   get tokenEventIds(): string[] {
     return [...this._currentTokenEventIds];
+  }
+
+  /** Get tracked history event IDs */
+  get historyEventIds(): string[] {
+    return [...this._currentHistoryEventIds];
   }
 
   /** Get configured relays (if any) */
