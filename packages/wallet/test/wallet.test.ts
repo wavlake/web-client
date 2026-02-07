@@ -301,4 +301,57 @@ describe('Wallet', () => {
       expect(proofsHandler).toHaveBeenCalled();
     });
   });
+
+  describe('concurrency', () => {
+    it('should report isBusy correctly', async () => {
+      await wallet.load();
+      
+      expect(wallet.isBusy).toBe(false);
+      
+      // Start an operation (will hold the mutex)
+      const createPromise = wallet.createToken(1);
+      
+      // Should be busy now
+      expect(wallet.isBusy).toBe(true);
+      
+      await createPromise;
+      
+      // Should be idle after
+      expect(wallet.isBusy).toBe(false);
+    });
+
+    it('should track queue length', async () => {
+      await wallet.load();
+      
+      expect(wallet.operationQueueLength).toBe(0);
+      
+      // Start multiple operations
+      const p1 = wallet.createToken(1);
+      const p2 = wallet.createToken(1);
+      const p3 = wallet.createToken(1);
+      
+      // Queue should have 2 waiting (one is active)
+      expect(wallet.operationQueueLength).toBe(2);
+      
+      await Promise.all([p1, p2, p3]);
+      
+      // Queue should be empty
+      expect(wallet.operationQueueLength).toBe(0);
+    });
+
+    it('should serialize concurrent createToken calls', async () => {
+      await wallet.load();
+      const initialBalance = wallet.balance;
+      
+      // Create 3 tokens concurrently (each costs 1 credit)
+      await Promise.all([
+        wallet.createToken(1),
+        wallet.createToken(1),
+        wallet.createToken(1),
+      ]);
+      
+      // All should complete without error, balance reduced by 3
+      expect(wallet.balance).toBe(initialBalance - 3);
+    });
+  });
 });

@@ -138,6 +138,12 @@ export type {
   TokenCreationErrorContext,
 } from './errors.js';
 
+// Mutex for concurrent operation handling
+export {
+  Mutex,
+  withMutex,
+} from './mutex.js';
+
 // Transaction history
 export {
   TransactionStore,

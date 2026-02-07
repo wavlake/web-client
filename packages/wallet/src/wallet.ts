@@ -21,6 +21,7 @@ import { createLogger, type Logger } from './logger.js';
 import { TokenCreationError, generateSuggestion } from './errors.js';
 import { getDenominations, getDefragStats, type DefragStats } from './inspect.js';
 import { TransactionStore, type TransactionRecord, type HistoryQueryOptions, type HistoryResult } from './history.js';
+import { Mutex } from './mutex.js';
 
 /**
  * Cashu wallet with state management.
@@ -52,6 +53,7 @@ export class Wallet {
   private readonly mint: Mint;
   private readonly cashuWallet: CashuWallet;
   private readonly log: Logger;
+  private readonly _mutex: Mutex;
   private _proofs: Proof[] = [];
   private _loaded = false;
   private _historyStore: TransactionStore;
@@ -70,6 +72,7 @@ export class Wallet {
     this.mint = new Mint(this.config.mintUrl);
     this.cashuWallet = new CashuWallet(this.mint, { unit: this.config.unit });
     this._historyStore = new TransactionStore();
+    this._mutex = new Mutex();
 
     this.log.info('Wallet initialized', { 
       mintUrl: this.config.mintUrl, 
@@ -115,6 +118,25 @@ export class Wallet {
    */
   get storage(): StorageAdapter {
     return this.config.storage;
+  }
+
+  /**
+   * Whether an operation is currently in progress.
+   * 
+   * When true, new operations will queue and wait for the current one to complete.
+   * Useful for UI to show loading states or disable buttons.
+   */
+  get isBusy(): boolean {
+    return this._mutex.isLocked;
+  }
+
+  /**
+   * Number of operations waiting in queue.
+   * 
+   * Useful for debugging concurrent access patterns.
+   */
+  get operationQueueLength(): number {
+    return this._mutex.queueLength;
   }
 
   // ===========================================================================
@@ -335,6 +357,9 @@ export class Wallet {
   /**
    * Create an encoded token for the specified amount.
    * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
+   * 
    * @param amount - Amount in credits
    * @param memo - Optional memo/description for the transaction
    * @param metadata - Optional metadata (e.g., { dtag: 'track-123' })
@@ -355,6 +380,7 @@ export class Wallet {
    * ```
    */
   async createToken(amount: number, memo?: string, metadata?: Record<string, unknown>): Promise<string> {
+    return this._mutex.runExclusive(async () => {
     this.log.info('Creating token', { amount, currentBalance: this.balance, memo });
 
     // Get denomination info for error context
@@ -472,10 +498,14 @@ export class Wallet {
     }
 
     return token;
+    }); // End mutex.runExclusive
   }
 
   /**
    * Receive a token and add proofs to wallet.
+   * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
    * 
    * @param token - Encoded token (cashuA/B format)
    * @param memo - Optional memo/description for the transaction
@@ -483,6 +513,7 @@ export class Wallet {
    * @returns Amount received
    */
   async receiveToken(token: string, memo?: string, metadata?: Record<string, unknown>): Promise<number> {
+    return this._mutex.runExclusive(async () => {
     this.log.info('Receiving token', { tokenPrefix: token.substring(0, 20) + '...', memo });
     
     const decoded = getDecodedToken(token);
@@ -536,6 +567,7 @@ export class Wallet {
 
     this.log.info('Token received', { amount, newBalance: this.balance });
     return amount;
+    }); // End mutex.runExclusive
   }
 
   /**
@@ -553,23 +585,33 @@ export class Wallet {
   /**
    * Add proofs directly to wallet.
    * Use receiveToken for tokens from external sources.
+   * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
    */
   async addProofs(proofs: Proof[]): Promise<void> {
-    this._proofs.push(...proofs);
-    await this.save();
-    this.emit('proofs-change', this._proofs);
-    this.emit('balance-change', this.balance);
+    return this._mutex.runExclusive(async () => {
+      this._proofs.push(...proofs);
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
+    });
   }
 
   /**
    * Remove specific proofs from wallet.
+   * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
    */
   async removeProofs(proofsToRemove: Proof[]): Promise<void> {
-    const removeSet = new Set(proofsToRemove.map(p => p.C));
-    this._proofs = this._proofs.filter(p => !removeSet.has(p.C));
-    await this.save();
-    this.emit('proofs-change', this._proofs);
-    this.emit('balance-change', this.balance);
+    return this._mutex.runExclusive(async () => {
+      const removeSet = new Set(proofsToRemove.map(p => p.C));
+      this._proofs = this._proofs.filter(p => !removeSet.has(p.C));
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
+    });
   }
 
   /**
@@ -581,21 +623,27 @@ export class Wallet {
 
   /**
    * Remove spent proofs from wallet.
+   * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
+   * 
    * @returns Number of proofs removed
    */
   async pruneSpent(): Promise<number> {
-    const { valid, spent } = await this.checkProofs();
-    
-    if (spent.length === 0) {
-      return 0;
-    }
+    return this._mutex.runExclusive(async () => {
+      const { valid, spent } = await this.checkProofs();
+      
+      if (spent.length === 0) {
+        return 0;
+      }
 
-    this._proofs = valid;
-    await this.save();
-    this.emit('proofs-change', this._proofs);
-    this.emit('balance-change', this.balance);
+      this._proofs = valid;
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
 
-    return spent.length;
+      return spent.length;
+    });
   }
 
   // ===========================================================================
@@ -653,6 +701,9 @@ export class Wallet {
    * // Or just defragment unconditionally
    * const result = await wallet.defragment();
    * ```
+   * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
    */
   async defragment(): Promise<{
     previousProofCount: number;
@@ -661,6 +712,7 @@ export class Wallet {
     newBalance: number;
     saved: number;
   }> {
+    return this._mutex.runExclusive(async () => {
     if (this._proofs.length === 0) {
       this.log.info('Defragment: No proofs to defragment');
       return {
@@ -725,6 +777,7 @@ export class Wallet {
       this.log.error('Defragmentation failed', { error: String(error) });
       throw error;
     }
+    }); // End mutex.runExclusive
   }
 
   // ===========================================================================
@@ -767,35 +820,40 @@ export class Wallet {
   /**
    * Mint tokens from a paid quote.
    * 
+   * This operation is thread-safe and will queue behind any in-progress
+   * wallet operations to prevent race conditions.
+   * 
    * @param quote - Quote or quote ID
    * @returns Amount minted
    */
   async mintTokens(quote: MintQuote | string): Promise<number> {
-    const quoteId = typeof quote === 'string' ? quote : quote.id;
-    const amount = typeof quote === 'string' ? undefined : quote.amount;
-    
-    const proofs = await this.cashuWallet.mintProofs(amount || 0, quoteId);
-    
-    this._proofs.push(...proofs);
-    await this.save();
-    this.emit('proofs-change', this._proofs);
-    this.emit('balance-change', this.balance);
+    return this._mutex.runExclusive(async () => {
+      const quoteId = typeof quote === 'string' ? quote : quote.id;
+      const amount = typeof quote === 'string' ? undefined : quote.amount;
+      
+      const proofs = await this.cashuWallet.mintProofs(amount || 0, quoteId);
+      
+      this._proofs.push(...proofs);
+      await this.save();
+      this.emit('proofs-change', this._proofs);
+      this.emit('balance-change', this.balance);
 
-    const mintedAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
+      const mintedAmount = proofs.reduce((sum, p) => sum + p.amount, 0);
 
-    // Record transaction
-    if (this.config.recordHistory) {
-      const tx = this._historyStore.add({
-        type: 'mint',
-        amount: mintedAmount,
-        memo: 'Minted from Lightning',
-        metadata: { quoteId },
-      });
-      this.emit('transaction', tx);
-      await this.saveHistory();
-    }
+      // Record transaction
+      if (this.config.recordHistory) {
+        const tx = this._historyStore.add({
+          type: 'mint',
+          amount: mintedAmount,
+          memo: 'Minted from Lightning',
+          metadata: { quoteId },
+        });
+        this.emit('transaction', tx);
+        await this.saveHistory();
+      }
 
-    return mintedAmount;
+      return mintedAmount;
+    });
   }
 
   // ===========================================================================
