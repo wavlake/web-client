@@ -169,7 +169,8 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      // Provider passes options (undefined when not specified) as third arg
+      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken', undefined);
       expect(URL.createObjectURL).toHaveBeenCalled();
       expect(result.current.audioUrl).toBe(mockObjectURL);
       expect(result.current.grantId).toBe(null); // No grant with audio endpoint
