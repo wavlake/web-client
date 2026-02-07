@@ -77,7 +77,10 @@ describe('usePaywall', () => {
         audioResult = await result.current.requestAudio('track-123', 'cashuBtoken');
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      // Check first two args match (options is optional and may be undefined)
+      expect(mockClient.requestAudio).toHaveBeenCalled();
+      expect(mockClient.requestAudio.mock.calls[0][0]).toBe('track-123');
+      expect(mockClient.requestAudio.mock.calls[0][1]).toBe('cashuBtoken');
       expect(audioResult.audio).toBeInstanceOf(Blob);
     });
 

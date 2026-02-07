@@ -16,7 +16,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import type { Wallet, Proof, MintQuote, CheckProofsResult } from '@wavlake/wallet';
+import type { Wallet, Proof, MintQuote, CheckProofsResult, DefragStats } from '@wavlake/wallet';
 
 // ============================================================================
 // Types
@@ -27,6 +27,8 @@ export interface WalletContextValue {
   balance: number;
   /** Current proofs (readonly copy) */
   proofs: Proof[];
+  /** Number of proofs in wallet */
+  proofCount: number;
   /** Whether the wallet is ready (false during SSR/hydration) */
   isReady: boolean;
   /** Whether an operation is in progress */
@@ -47,6 +49,18 @@ export interface WalletContextValue {
   pruneSpent: () => Promise<number>;
   /** Clear all proofs from wallet */
   clear: () => Promise<void>;
+  /** Get defragmentation statistics */
+  getDefragStats: () => DefragStats;
+  /** Check if defragmentation is recommended */
+  needsDefragmentation: () => boolean;
+  /** Defragment wallet proofs by consolidating them with the mint */
+  defragment: () => Promise<{
+    previousProofCount: number;
+    newProofCount: number;
+    previousBalance: number;
+    newBalance: number;
+    saved: number;
+  }>;
 }
 
 // ============================================================================
@@ -290,9 +304,32 @@ export function WalletProvider({
     }
   }, []);
 
+  const getDefragStats = useCallback(() => {
+    return walletRef.current.getDefragStats();
+  }, []);
+
+  const needsDefragmentation = useCallback(() => {
+    return walletRef.current.needsDefragmentation();
+  }, []);
+
+  const defragment = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await walletRef.current.defragment();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const value: WalletContextValue = {
     balance,
     proofs,
+    proofCount: proofs.length,
     isReady,
     isLoading,
     error,
@@ -303,6 +340,9 @@ export function WalletProvider({
     checkProofs,
     pruneSpent,
     clear,
+    getDefragStats,
+    needsDefragmentation,
+    defragment,
   };
 
   return (

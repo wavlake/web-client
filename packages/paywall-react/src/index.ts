@@ -106,6 +106,15 @@ export {
   type UseWalletHealthOptions,
 } from './hooks/useWalletHealth.js';
 
+export {
+  useWalletAlerts,
+  type UseWalletAlertsOptions,
+  type UseWalletAlertsResult,
+  type WalletAlert,
+  type AlertSeverity,
+  type AlertType,
+} from './hooks/useWalletAlerts.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
@@ -115,6 +124,7 @@ export type {
   MintStatus,
   ProofHealth,
   HealthCheckOptions,
+  DefragStats,
 } from '@wavlake/wallet';
 
 export type {

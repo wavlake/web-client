@@ -169,7 +169,10 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      // Check first two args match (options is optional and may be undefined)
+      expect(mockClient.requestAudio).toHaveBeenCalled();
+      expect(mockClient.requestAudio.mock.calls[0][0]).toBe('track-123');
+      expect(mockClient.requestAudio.mock.calls[0][1]).toBe('cashuBtoken');
       expect(URL.createObjectURL).toHaveBeenCalled();
       expect(result.current.audioUrl).toBe(mockObjectURL);
       expect(result.current.grantId).toBe(null); // No grant with audio endpoint
