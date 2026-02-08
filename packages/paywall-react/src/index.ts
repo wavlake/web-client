@@ -88,6 +88,13 @@ export {
 } from './hooks/useTrackPlayer.js';
 
 export {
+  useGrantCache,
+  GrantCache,
+  type UseGrantCacheResult,
+  type GrantCacheEntry,
+} from './hooks/useGrantCache.js';
+
+export {
   useContentPrice,
   useContentPrices,
   type ContentPriceState,
