@@ -128,15 +128,8 @@ export function useTrackPayment(): TrackPaymentState {
       setStatus('requesting-content');
       const content = await requestContent(dtag, token);
 
-      // Step 4: Handle change if present
-      if (content.change) {
-        try {
-          await receiveToken(content.change);
-        } catch (changeErr) {
-          // Log but don't fail - change handling is best-effort
-          console.warn('Failed to receive change:', changeErr);
-        }
-      }
+      // Note: Change mechanism removed - overpayment becomes artist tip
+      // Clients should prepare exact denominations via mint swap
 
       setResult(content);
       setStatus('success');
