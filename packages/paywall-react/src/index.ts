@@ -106,6 +106,21 @@ export {
   type UseWalletHealthOptions,
 } from './hooks/useWalletHealth.js';
 
+export {
+  useTokenPreview,
+  useTokenPreviews,
+  type UseTokenPreviewResult,
+} from './hooks/useTokenPreview.js';
+
+export {
+  useDefragmentation,
+  useNeedsDefragmentation,
+  useFragmentationPercentage,
+  type UseDefragmentationResult,
+  type UseNeedsDefragmentationResult,
+  type DefragmentationResult,
+} from './hooks/useDefragmentation.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
@@ -115,6 +130,8 @@ export type {
   MintStatus,
   ProofHealth,
   HealthCheckOptions,
+  TokenPreview,
+  DefragStats,
 } from '@wavlake/wallet';
 
 export type {

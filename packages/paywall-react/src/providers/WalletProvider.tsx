@@ -16,7 +16,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
-import type { Wallet, Proof, MintQuote, CheckProofsResult } from '@wavlake/wallet';
+import type { Wallet, Proof, MintQuote, CheckProofsResult, TokenPreview, DefragStats } from '@wavlake/wallet';
 
 // ============================================================================
 // Types
@@ -47,6 +47,31 @@ export interface WalletContextValue {
   pruneSpent: () => Promise<number>;
   /** Clear all proofs from wallet */
   clear: () => Promise<void>;
+  /**
+   * Preview what would happen when creating a token.
+   * Does not modify wallet state - use for UI hints before payment.
+   */
+  previewToken: (amount: number) => TokenPreview;
+  /**
+   * Get defragmentation statistics for the wallet.
+   * Returns fragmentation score and recommendation.
+   */
+  getDefragStats: () => DefragStats;
+  /**
+   * Check if defragmentation is recommended.
+   */
+  needsDefragmentation: () => boolean;
+  /**
+   * Defragment wallet proofs by consolidating with the mint.
+   * Reduces proof count for more efficient transactions.
+   */
+  defragment: () => Promise<{
+    previousProofCount: number;
+    newProofCount: number;
+    previousBalance: number;
+    newBalance: number;
+    saved: number;
+  }>;
 }
 
 // ============================================================================
@@ -290,6 +315,36 @@ export function WalletProvider({
     }
   }, []);
 
+  // Synchronous preview - does not modify state
+  const previewToken = useCallback((amount: number): TokenPreview => {
+    return walletRef.current.previewToken(amount);
+  }, []);
+
+  // Synchronous defrag stats
+  const getDefragStats = useCallback((): DefragStats => {
+    return walletRef.current.getDefragStats();
+  }, []);
+
+  // Synchronous check
+  const needsDefragmentation = useCallback((): boolean => {
+    return walletRef.current.needsDefragmentation();
+  }, []);
+
+  // Async defragmentation
+  const defragment = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await walletRef.current.defragment();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const value: WalletContextValue = {
     balance,
     proofs,
@@ -303,6 +358,10 @@ export function WalletProvider({
     checkProofs,
     pruneSpent,
     clear,
+    previewToken,
+    getDefragStats,
+    needsDefragmentation,
+    defragment,
   };
 
   return (
