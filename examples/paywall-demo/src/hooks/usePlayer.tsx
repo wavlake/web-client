@@ -1,33 +1,33 @@
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
-import { useWallet, usePaywall } from '@wavlake/paywall-react';
-import type { ChunkType, TwoChunkInfo } from '@wavlake/paywall-client';
-import { useSettings } from './useSettings';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useRef,
+  type ReactNode,
+} from 'react';
+import { useWallet } from '@wavlake/paywall-react';
+import type { Track, StreamState, StreamHeaders, SettlementReceipt } from '../types';
+import { getTrackDtag } from '../types';
+
+// ============================================================================
+// Config
+// ============================================================================
+
+const API_URL = 'https://api-staging-854568123236.us-central1.run.app';
+
+const PAYMENT_CONFIG = {
+  /** How many seconds before preview end to trigger payment */
+  PAYMENT_TRIGGER_OFFSET_SECONDS: 3,
+  /** Minimum ms between payment attempts */
+  PAYMENT_DEBOUNCE_MS: 1000,
+  /** Payment POST timeout */
+  PAYMENT_TIMEOUT_MS: 15000,
+};
 
 // ============================================================================
 // Types
 // ============================================================================
-
-interface Track {
-  dtag: string;
-  title: string;
-  artist: string;
-  price: number;
-  artwork?: string;
-}
-
-/**
- * Stream state for two-chunk delivery
- */
-type StreamState = 'idle' | 'preview' | 'waiting' | 'paid' | 'complete';
-
-/**
- * Resume token info for continuing interrupted streams
- */
-interface ResumeInfo {
-  token: string;
-  trackDtag: string;
-  expiresAt: number;
-}
 
 interface PlayerContextValue {
   // Playback state
@@ -36,18 +36,31 @@ interface PlayerContextValue {
   isPlaying: boolean;
   isLoading: boolean;
   error: Error | null;
-  
-  // Two-chunk state
-  chunkType: ChunkType | null;
+  currentTime: number;
+  duration: number;
+
+  // Parallel payment streaming state
   streamState: StreamState;
-  resumeInfo: ResumeInfo | null;
-  paymentRequired: boolean;
-  
+  depositId: string | null;
+  streamHeaders: StreamHeaders | null;
+  paymentConfirmed: boolean;
+  receipt: SettlementReceipt | null;
+  firstByteReceived: boolean;
+
+  // Computed: preview duration in seconds
+  previewDuration: number;
+
   // Actions
   play: (track: Track) => Promise<void>;
   stop: () => void;
   clearError: () => void;
-  resumeWithToken: () => Promise<void>;
+
+  // Audio element management
+  setAudioElement: (element: HTMLAudioElement | null) => void;
+  updateTime: (time: number, totalDuration: number) => void;
+
+  // Payment trigger (called by timeupdate listener in Player)
+  triggerPayment: () => Promise<boolean>;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -58,8 +71,6 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const wallet = useWallet();
-  const paywall = usePaywall();
-  const { endpoint } = useSettings();
 
   // Playback state
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -67,204 +78,297 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
 
-  // Two-chunk state
-  const [chunkType, setChunkType] = useState<ChunkType | null>(null);
+  // Parallel payment streaming state
   const [streamState, setStreamState] = useState<StreamState>('idle');
-  const [resumeInfo, setResumeInfo] = useState<ResumeInfo | null>(null);
-  const [paymentRequired, setPaymentRequired] = useState(false);
+  const [depositId, setDepositId] = useState<string | null>(null);
+  const [streamHeaders, setStreamHeaders] = useState<StreamHeaders | null>(null);
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
+  const [receipt, setReceipt] = useState<SettlementReceipt | null>(null);
+  const [firstByteReceived, setFirstByteReceived] = useState(false);
 
-  // Track blob URLs for cleanup
-  const blobUrlRef = useRef<string | null>(null);
+  // Audio element ref
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
-  const cleanupBlobUrl = useCallback(() => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-  }, []);
+  // Payment debounce refs
+  const paymentInFlightRef = useRef(false);
+  const lastPaymentAttemptRef = useRef(0);
 
-  const resetTwoChunkState = useCallback(() => {
-    setChunkType(null);
-    setStreamState('idle');
-    setResumeInfo(null);
-    setPaymentRequired(false);
-  }, []);
+  // Track ref for current track context
+  const currentTrackRef = useRef<Track | null>(null);
+  currentTrackRef.current = currentTrack;
 
-  const updateTwoChunkState = useCallback((twoChunk: TwoChunkInfo | undefined, track: Track) => {
-    if (!twoChunk) return;
+  // Computed preview duration
+  const previewDuration = streamHeaders
+    ? (streamHeaders.previewEndByte / (streamHeaders.durationSeconds > 0
+        ? (streamHeaders.previewEndByte / streamHeaders.durationSeconds * duration / streamHeaders.previewEndByte)
+        : 128000 / 8)) // Fallback: 128kbps estimate
+    : 60; // Default 60s preview
 
-    // Update chunk type
-    if (twoChunk.chunk) {
-      setChunkType(twoChunk.chunk);
-      
-      // Update stream state based on chunk
-      if (twoChunk.chunk === 'preview') {
-        setStreamState('preview');
-      } else if (twoChunk.chunk === 'paid' || twoChunk.chunk === 'full') {
-        setStreamState('paid');
-      }
-    }
+  /**
+   * Build stream URL with depositID as query parameter.
+   */
+  const buildStreamUrl = useCallback(
+    (track: Track, depId: string): string => {
+      const dtag = getTrackDtag(track);
+      const url = new URL(`${API_URL}/api/v1/audio/${dtag}`);
+      url.searchParams.set('d', depId);
+      return url.toString();
+    },
+    []
+  );
 
-    // Handle payment required (60s checkpoint reached without payment)
-    if (twoChunk.paymentRequired) {
-      setPaymentRequired(true);
-      setStreamState('waiting');
-    }
+  /**
+   * Parse stream headers from HEAD response.
+   */
+  const fetchStreamHeaders = useCallback(
+    async (track: Track, depId: string): Promise<StreamHeaders | null> => {
+      try {
+        const url = buildStreamUrl(track, depId);
+        const response = await fetch(url, { method: 'HEAD' });
 
-    // Handle payment settled
-    if (twoChunk.paymentSettled) {
-      setPaymentRequired(false);
-      setStreamState('paid');
-    }
+        const previewEndByte = response.headers.get('X-Preview-End-Byte');
+        const priceCredits = response.headers.get('X-Price-Credits');
+        const mintUrl = response.headers.get('X-Mint-URL');
+        const durationSeconds = response.headers.get('X-Duration-Seconds');
 
-    // Store resume token if provided
-    if (twoChunk.resumeToken) {
-      setResumeInfo({
-        token: twoChunk.resumeToken,
-        trackDtag: track.dtag,
-        expiresAt: Date.now() + 10 * 60 * 1000, // 10 min TTL
-      });
-    }
-  }, []);
-
-  const play = useCallback(async (track: Track) => {
-    setIsLoading(true);
-    setError(null);
-    resetTwoChunkState();
-
-    try {
-      // Check balance
-      if (wallet.balance < track.price) {
-        throw new Error(`Insufficient balance: need ${track.price}, have ${wallet.balance}`);
-      }
-
-      // Create token with exact amount (no change returned by server)
-      console.log(`[${endpoint}] Creating token for ${track.price} credits...`);
-      const token = await wallet.createToken(track.price);
-      console.log('Token created:', token.substring(0, 50) + '...');
-
-      let url: string;
-
-      if (endpoint === 'content') {
-        // Use /api/v1/content - JSON with signed URL + grant
-        console.log(`[content] Requesting content for ${track.dtag}...`);
-        const result = await paywall.requestContent(track.dtag, token);
-        console.log('Content result:', result);
-        url = result.url;
-        // Content endpoint doesn't support two-chunk (uses grants instead)
-        setChunkType('full');
-        setStreamState('paid');
-      } else if (endpoint === 'audio') {
-        // Use /api/v1/audio - Direct binary stream via header
-        console.log(`[audio] Requesting audio for ${track.dtag}...`);
-        const result = await paywall.requestAudio(track.dtag, token);
-        console.log('Audio result: blob received, size:', result.audio.size);
-        
-        // Create blob URL for audio element
-        cleanupBlobUrl();
-        url = URL.createObjectURL(result.audio);
-        blobUrlRef.current = url;
-
-        // Update two-chunk state from headers
-        updateTwoChunkState(result.twoChunk, track);
-        
-        // Log two-chunk info
-        if (result.twoChunk) {
-          console.log('Two-chunk info:', result.twoChunk);
+        if (!previewEndByte || !priceCredits) {
+          console.log('[Player] No stream headers (may be free track)');
+          return null;
         }
-      } else {
-        // Use /api/v1/audio?token= - URL param for native <audio>
-        console.log(`[audio-url] Getting URL with token for ${track.dtag}...`);
-        url = paywall.getAudioUrl(track.dtag, token);
-        console.log('Audio URL:', url.substring(0, 80) + '...');
-        // URL mode - can't read headers, assume full access
-        setChunkType('full');
-        setStreamState('paid');
+
+        const headers: StreamHeaders = {
+          previewEndByte: parseInt(previewEndByte, 10),
+          priceCredits: parseInt(priceCredits, 10),
+          mintUrl: mintUrl || 'https://nutshell-staging-854568123236.us-central1.run.app',
+          durationSeconds: durationSeconds ? parseFloat(durationSeconds) : 0,
+        };
+
+        console.log('[Player] Stream headers:', headers);
+        return headers;
+      } catch (err) {
+        console.error('[Player] Failed to fetch stream headers:', err);
+        return null;
+      }
+    },
+    [buildStreamUrl]
+  );
+
+  /**
+   * Send payment to POST /v1/audio/{dtag}/pay
+   */
+  const sendPayment = useCallback(
+    async (track: Track, depId: string, price: number): Promise<boolean> => {
+      // Check balance
+      if (wallet.balance < price) {
+        setError(new Error(`Insufficient balance: need ${price}, have ${wallet.balance}`));
+        return false;
       }
 
-      // Set up playback
-      setCurrentTrack(track);
-      setAudioUrl(url);
-      setIsPlaying(true);
+      try {
+        // Create token with exact amount
+        console.log(`[Player] Creating token for ${price} credits...`);
+        const token = await wallet.createToken(price);
+        console.log('[Player] Token created');
 
-    } catch (err) {
-      console.error('Play error:', err);
-      const e = err instanceof Error ? err : new Error(String(err));
-      setError(e);
-    } finally {
-      setIsLoading(false);
+        // POST to pay endpoint
+        const dtag = getTrackDtag(track);
+        const payUrl = `${API_URL}/api/v1/audio/${dtag}/pay`;
+        console.log(`[Player] POST ${payUrl}`);
+
+        const response = await fetch(payUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ depositId: depId, token }),
+          signal: AbortSignal.timeout(PAYMENT_CONFIG.PAYMENT_TIMEOUT_MS),
+        });
+
+        if (response.ok) {
+          // Parse receipt from response
+          try {
+            const data = await response.json();
+            if (data.success && data.data?.receipt) {
+              setReceipt(data.data.receipt as SettlementReceipt);
+              console.log('[Player] Receipt received:', data.data.receipt.id);
+            }
+          } catch {
+            console.log('[Player] Could not parse receipt');
+          }
+
+          console.log('[Player] Payment confirmed');
+          return true;
+        }
+
+        if (response.status === 402) {
+          console.log('[Player] Payment rejected (402)');
+          setError(new Error('Payment rejected: proofs invalid or insufficient'));
+          return false;
+        }
+
+        if (response.status === 404) {
+          console.log('[Player] Deposit not found (404)');
+          setError(new Error('Stream timed out. Please restart playback.'));
+          return false;
+        }
+
+        if (response.status === 409) {
+          console.log('[Player] Deposit already paid (409)');
+          return true; // Already paid, treat as success
+        }
+
+        const text = await response.text();
+        console.error('[Player] Payment failed:', response.status, text);
+        setError(new Error(`Payment failed: ${response.status}`));
+        return false;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Payment error';
+        console.error('[Player] Payment error:', message);
+        setError(new Error(message));
+        return false;
+      }
+    },
+    [wallet]
+  );
+
+  /**
+   * Trigger payment for the currently playing stream.
+   * Called by timeupdate listener when nearing preview boundary.
+   */
+  const triggerPayment = useCallback(async (): Promise<boolean> => {
+    // Debounce
+    if (paymentInFlightRef.current) return false;
+    const now = Date.now();
+    if (now - lastPaymentAttemptRef.current < PAYMENT_CONFIG.PAYMENT_DEBOUNCE_MS) {
+      return false;
     }
-  }, [wallet, paywall, endpoint, cleanupBlobUrl, resetTwoChunkState, updateTwoChunkState]);
 
-  const resumeWithToken = useCallback(async () => {
-    if (!resumeInfo || !currentTrack) {
-      setError(new Error('No resume token available'));
-      return;
+    const track = currentTrackRef.current;
+    if (!track || !depositId || !streamHeaders) {
+      console.log('[Player] Payment trigger skipped: no active stream');
+      return false;
     }
 
-    // Check if resume token expired
-    if (Date.now() > resumeInfo.expiresAt) {
-      setError(new Error('Resume token expired'));
-      setResumeInfo(null);
-      return;
+    if (paymentConfirmed) return false;
+    if (!firstByteReceived) {
+      console.log('[Player] Payment trigger skipped: waiting for first byte');
+      return false;
     }
 
-    setIsLoading(true);
-    setError(null);
+    paymentInFlightRef.current = true;
+    lastPaymentAttemptRef.current = now;
+
+    console.log('[Player] Payment triggered', {
+      trackId: getTrackDtag(track),
+      depositId,
+      price: streamHeaders.priceCredits,
+      currentTime,
+    });
+
+    setStreamState('paying');
 
     try {
-      // Check balance
-      if (wallet.balance < currentTrack.price) {
-        throw new Error(`Insufficient balance: need ${currentTrack.price}, have ${wallet.balance}`);
+      const success = await sendPayment(track, depositId, streamHeaders.priceCredits);
+
+      if (success) {
+        setPaymentConfirmed(true);
+        setStreamState('paid');
+        console.log('[Player] Payment flow complete');
+      } else {
+        setStreamState('error');
       }
 
-      // Create new token for resumed playback
-      console.log(`[resume] Creating token for ${currentTrack.price} credits...`);
-      const token = await wallet.createToken(currentTrack.price);
-      console.log('Token created for resume:', token.substring(0, 50) + '...');
-
-      // Request audio with resume token header
-      console.log(`[resume] Resuming audio for ${currentTrack.dtag}...`);
-      const result = await paywall.requestAudio(currentTrack.dtag, token, {
-        headers: {
-          'X-Resume-Token': resumeInfo.token,
-        },
-      });
-
-      console.log('Resume result: blob received, size:', result.audio.size);
-      
-      // Create blob URL
-      cleanupBlobUrl();
-      const url = URL.createObjectURL(result.audio);
-      blobUrlRef.current = url;
-
-      // Update state
-      updateTwoChunkState(result.twoChunk, currentTrack);
-      setAudioUrl(url);
-      setIsPlaying(true);
-      setPaymentRequired(false);
-      setResumeInfo(null); // Clear resume token after use
-
-    } catch (err) {
-      console.error('Resume error:', err);
-      const e = err instanceof Error ? err : new Error(String(err));
-      setError(e);
+      return success;
     } finally {
-      setIsLoading(false);
+      paymentInFlightRef.current = false;
     }
-  }, [wallet, paywall, currentTrack, resumeInfo, cleanupBlobUrl, updateTwoChunkState]);
+  }, [depositId, streamHeaders, paymentConfirmed, firstByteReceived, currentTime, sendPayment]);
+
+  /**
+   * Play a track using parallel payment streaming protocol.
+   */
+  const play = useCallback(
+    async (track: Track) => {
+      setIsLoading(true);
+      setError(null);
+
+      // Reset state
+      setStreamState('idle');
+      setDepositId(null);
+      setStreamHeaders(null);
+      setPaymentConfirmed(false);
+      setReceipt(null);
+      setFirstByteReceived(false);
+      setCurrentTime(0);
+      setDuration(0);
+
+      try {
+        // Generate depositID
+        const depId = crypto.randomUUID();
+        setDepositId(depId);
+
+        // Fetch stream headers via HEAD
+        const headers = await fetchStreamHeaders(track, depId);
+        if (headers) {
+          setStreamHeaders(headers);
+        }
+
+        // Build stream URL
+        const url = buildStreamUrl(track, depId);
+        console.log('[Player] Starting stream:', url.replace(/d=[^&]+/, 'd=***'));
+
+        // Set audio source
+        setCurrentTrack(track);
+        setAudioUrl(url);
+        setStreamState('streaming');
+
+        // Play via audio element
+        if (audioElementRef.current) {
+          audioElementRef.current.src = url;
+          await audioElementRef.current.play();
+          setIsPlaying(true);
+          setFirstByteReceived(true);
+        }
+      } catch (err) {
+        console.error('[Player] Play error:', err);
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        setStreamState('error');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [buildStreamUrl, fetchStreamHeaders]
+  );
 
   const stop = useCallback(() => {
-    cleanupBlobUrl();
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = '';
+    }
     setAudioUrl(null);
     setIsPlaying(false);
     setCurrentTrack(null);
-    resetTwoChunkState();
-  }, [cleanupBlobUrl, resetTwoChunkState]);
+    setStreamState('idle');
+    setDepositId(null);
+    setStreamHeaders(null);
+    setPaymentConfirmed(false);
+    setReceipt(null);
+    setFirstByteReceived(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, []);
 
-  const clearError = useCallback(() => {
-    setError(null);
+  const clearError = useCallback(() => setError(null), []);
+
+  const setAudioElement = useCallback((element: HTMLAudioElement | null) => {
+    audioElementRef.current = element;
+  }, []);
+
+  const updateTime = useCallback((time: number, totalDuration: number) => {
+    setCurrentTime(time);
+    setDuration(totalDuration);
   }, []);
 
   const value: PlayerContextValue = {
@@ -273,21 +377,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     isPlaying,
     isLoading,
     error,
-    chunkType,
+    currentTime,
+    duration,
     streamState,
-    resumeInfo,
-    paymentRequired,
+    depositId,
+    streamHeaders,
+    paymentConfirmed,
+    receipt,
+    firstByteReceived,
+    previewDuration,
     play,
     stop,
     clearError,
-    resumeWithToken,
+    setAudioElement,
+    updateTime,
+    triggerPayment,
   };
 
-  return (
-    <PlayerContext.Provider value={value}>
-      {children}
-    </PlayerContext.Provider>
-  );
+  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
 
 // ============================================================================

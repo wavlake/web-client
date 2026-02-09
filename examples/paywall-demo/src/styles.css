@@ -461,8 +461,8 @@ header h1 {
   border-top: 1px solid #333;
   padding: 16px 20px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .now-playing {
@@ -491,6 +491,169 @@ header h1 {
 .audio-element {
   flex: 1;
   height: 40px;
+}
+
+/* Player Controls - Parallel Payment Streaming */
+.player-controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #333;
+  color: #fafafa;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.control-btn:hover {
+  background: #444;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  position: relative;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.progress-bar.progress-limited {
+  cursor: not-allowed;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 3px;
+  transition: width 0.1s;
+}
+
+.preview-marker {
+  position: absolute;
+  top: -4px;
+  width: 3px;
+  height: 14px;
+  background: #f59e0b;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.blocked-region {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(239, 68, 68, 0.2);
+  border-left: 2px solid rgba(239, 68, 68, 0.5);
+  pointer-events: none;
+}
+
+.time-display {
+  display: flex;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-family: 'Monaco', 'Consolas', monospace;
+  color: #888;
+  min-width: 90px;
+}
+
+.stream-info {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: #666;
+  padding-top: 8px;
+  border-top: 1px solid #333;
+  margin-top: 8px;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #ef4444;
+  font-size: 0.85rem;
+}
+
+.error-message button {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.payment-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  color: #3b82f6;
+  font-size: 0.85rem;
+}
+
+.payment-pending .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.now-playing-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-preview {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.badge-paying {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.badge-paid {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
 }
 
 .stop-btn {
