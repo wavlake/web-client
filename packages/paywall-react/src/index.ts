@@ -61,6 +61,8 @@ export {
   useWalletContext,
   type WalletProviderProps,
   type WalletContextValue,
+  type DefragmentResult,
+  type HistorySummary,
 } from './providers/WalletProvider.js';
 
 export {
@@ -106,11 +108,21 @@ export {
   type UseWalletHealthOptions,
 } from './hooks/useWalletHealth.js';
 
+export {
+  useTokenPreview,
+  useSimplePreview,
+  type TokenPreviewState,
+  type ProofDetail,
+  type UseTokenPreviewOptions,
+  type UseTokenPreviewResult,
+} from './hooks/useTokenPreview.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
   MintQuote,
   CheckProofsResult,
+  TokenPreview,
   WalletHealth,
   MintStatus,
   ProofHealth,

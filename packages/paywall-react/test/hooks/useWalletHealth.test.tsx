@@ -44,23 +44,58 @@ vi.mock('@wavlake/wallet', async () => {
 import { checkWalletHealth, quickHealthCheck } from '@wavlake/wallet';
 
 // Mock wallet
-const createMockWallet = () => ({
+const createMockWallet = (mintUrl: string = 'https://mint.test.com') => ({
   balance: 100,
   proofs: [
     { C: 'c1', amount: 50, id: 'keyset1', secret: 's1' },
     { C: 'c2', amount: 50, id: 'keyset1', secret: 's2' },
   ],
   isLoaded: true,
-  mintUrl: 'https://mint.test.com',
+  mintUrl,
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
   receiveToken: vi.fn().mockResolvedValue(5),
+  previewToken: vi.fn().mockReturnValue({
+    canCreate: true,
+    amount: 10,
+    availableBalance: 100,
+    availableDenominations: [1, 2, 4, 8, 16, 32, 64],
+    denominationCounts: {},
+    selectedProofs: [],
+    selectedTotal: 10,
+    change: 0,
+    needsSwap: false,
+  }),
   createMintQuote: vi.fn().mockResolvedValue({ id: 'quote-123', request: 'lnbc100...', amount: 100 }),
   mintTokens: vi.fn().mockResolvedValue(100),
   checkProofs: vi.fn().mockResolvedValue({ valid: [], spent: [] }),
   pruneSpent: vi.fn().mockResolvedValue(0),
+  getDefragStats: vi.fn().mockReturnValue({
+    proofCount: 2,
+    totalAmount: 100,
+    uniqueDenominations: 1,
+    fragmentation: 0,
+    recommendation: 'healthy',
+  }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({
+    previousProofCount: 2,
+    newProofCount: 1,
+    previousBalance: 100,
+    newBalance: 100,
+    saved: 1,
+  }),
+  getHistory: vi.fn().mockReturnValue({ records: [], total: 0, hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
+  getHistorySummary: vi.fn().mockReturnValue({
+    totalSent: 0,
+    totalReceived: 0,
+    netChange: 0,
+    transactionCount: 0,
+  }),
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -253,10 +288,40 @@ describe('useWalletHealth', () => {
     expect(result.current.health).toBe(null);
   });
 
-  it('should require mintUrl', async () => {
+  it('should use mintUrl from context by default', async () => {
+    // Don't use checkOnMount - instead manually trigger refresh
+    // This avoids race conditions with wallet loading
     const { result } = renderHook(
       () => useWalletHealth({ checkOnMount: false }),
       { wrapper }
+    );
+
+    // Manually trigger health check
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    // Should have used the mintUrl from context (https://mint.test.com)
+    expect(checkWalletHealth).toHaveBeenCalledWith(
+      'https://mint.test.com',
+      expect.any(Array),
+      expect.any(Object)
+    );
+    expect(result.current.health).not.toBe(null);
+  });
+
+  it('should error when context mintUrl is empty and no custom mintUrl provided', async () => {
+    // Create wallet with empty mintUrl
+    const emptyMintWallet = createMockWallet('');
+    const emptyWrapper = ({ children }: { children: React.ReactNode }) => (
+      <WalletProvider wallet={emptyMintWallet as any}>
+        {children}
+      </WalletProvider>
+    );
+
+    const { result } = renderHook(
+      () => useWalletHealth({ checkOnMount: false }),
+      { wrapper: emptyWrapper }
     );
 
     await act(async () => {

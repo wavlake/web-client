@@ -13,11 +13,23 @@ const createMockWallet = () => ({
   proofs: [{ C: 'c1', amount: 100, id: 'keyset1', secret: 's1' }],
   isLoaded: false,
   mintUrl: 'https://mint.test.com',
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
   receiveToken: vi.fn().mockResolvedValue(5),
+  previewToken: vi.fn().mockReturnValue({
+    canCreate: true,
+    amount: 10,
+    availableBalance: 100,
+    availableDenominations: [1, 2, 4, 8, 16, 32, 64],
+    denominationCounts: { 100: 1 },
+    selectedProofs: [],
+    selectedTotal: 10,
+    change: 0,
+    needsSwap: false,
+  }),
   createMintQuote: vi.fn().mockResolvedValue({
     id: 'quote-123',
     request: 'lnbc100...',
@@ -26,6 +38,29 @@ const createMockWallet = () => ({
   mintTokens: vi.fn().mockResolvedValue(100),
   checkProofs: vi.fn().mockResolvedValue({ valid: [], spent: [] }),
   pruneSpent: vi.fn().mockResolvedValue(0),
+  getDefragStats: vi.fn().mockReturnValue({
+    proofCount: 1,
+    totalAmount: 100,
+    uniqueDenominations: 1,
+    fragmentation: 0,
+    recommendation: 'healthy',
+  }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({
+    previousProofCount: 1,
+    newProofCount: 1,
+    previousBalance: 100,
+    newBalance: 100,
+    saved: 0,
+  }),
+  getHistory: vi.fn().mockReturnValue({ records: [], total: 0, hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
+  getHistorySummary: vi.fn().mockReturnValue({
+    totalSent: 0,
+    totalReceived: 0,
+    netChange: 0,
+    transactionCount: 0,
+  }),
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -107,7 +142,8 @@ describe('useWallet', () => {
       expect(token).toBe('cashuBtoken');
     });
 
-    expect(mockWallet.createToken).toHaveBeenCalledWith(10);
+    // createToken now accepts optional memo and metadata parameters
+    expect(mockWallet.createToken).toHaveBeenCalledWith(10, undefined, undefined);
   });
 
   it('should expose receiveToken action', async () => {
@@ -122,7 +158,8 @@ describe('useWallet', () => {
       expect(amount).toBe(5);
     });
 
-    expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBtoken');
+    // receiveToken now accepts optional memo and metadata parameters
+    expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBtoken', undefined, undefined);
   });
 
   it('should expose createMintQuote action', async () => {

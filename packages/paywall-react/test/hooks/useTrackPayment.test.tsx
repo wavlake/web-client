@@ -14,15 +14,50 @@ const createMockWallet = (balance = 100) => ({
   proofs: [{ C: 'c1', amount: balance, id: 'keyset1', secret: 's1' }],
   isLoaded: true,
   mintUrl: 'https://mint.test.com',
+  historyCount: 0,
   load: vi.fn().mockResolvedValue(undefined),
   save: vi.fn().mockResolvedValue(undefined),
   clear: vi.fn().mockResolvedValue(undefined),
   createToken: vi.fn().mockResolvedValue('cashuBtoken'),
   receiveToken: vi.fn().mockResolvedValue(3),
+  previewToken: vi.fn().mockReturnValue({
+    canCreate: true,
+    amount: 5,
+    availableBalance: balance,
+    availableDenominations: [1, 2, 4, 8, 16, 32, 64],
+    denominationCounts: {},
+    selectedProofs: [],
+    selectedTotal: 5,
+    change: 0,
+    needsSwap: false,
+  }),
   createMintQuote: vi.fn(),
   mintTokens: vi.fn(),
   checkProofs: vi.fn(),
   pruneSpent: vi.fn(),
+  getDefragStats: vi.fn().mockReturnValue({
+    proofCount: 1,
+    totalAmount: balance,
+    uniqueDenominations: 1,
+    fragmentation: 0,
+    recommendation: 'healthy',
+  }),
+  needsDefragmentation: vi.fn().mockReturnValue(false),
+  defragment: vi.fn().mockResolvedValue({
+    previousProofCount: 1,
+    newProofCount: 1,
+    previousBalance: balance,
+    newBalance: balance,
+    saved: 0,
+  }),
+  getHistory: vi.fn().mockReturnValue({ records: [], total: 0, hasMore: false }),
+  getTransaction: vi.fn().mockReturnValue(null),
+  getHistorySummary: vi.fn().mockReturnValue({
+    totalSent: 0,
+    totalReceived: 0,
+    netChange: 0,
+    transactionCount: 0,
+  }),
   on: vi.fn(),
   off: vi.fn(),
 });
@@ -90,7 +125,8 @@ describe('useTrackPayment', () => {
 
       expect(result.current.status).toBe('success');
       expect(payResult?.url).toBe('https://cdn.wavlake.com/signed-url');
-      expect(mockWallet.createToken).toHaveBeenCalledWith(5);
+      // createToken now accepts optional memo and metadata parameters
+      expect(mockWallet.createToken).toHaveBeenCalledWith(5, undefined, undefined);
       expect(mockClient.requestContent).toHaveBeenCalledWith('track-123', 'cashuBtoken');
     });
 
@@ -106,7 +142,8 @@ describe('useTrackPayment', () => {
       });
 
       expect(mockClient.getContentPrice).toHaveBeenCalledWith('track-123');
-      expect(mockWallet.createToken).toHaveBeenCalledWith(5);
+      // createToken now accepts optional memo and metadata parameters
+      expect(mockWallet.createToken).toHaveBeenCalledWith(5, undefined, undefined);
       expect(result.current.status).toBe('success');
     });
 
@@ -150,7 +187,8 @@ describe('useTrackPayment', () => {
         await result.current.pay('track-123', 5);
       });
 
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
+      // receiveToken now accepts optional memo and metadata parameters
+      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken', undefined, undefined);
     });
 
     it('should continue successfully even if change handling fails', async () => {

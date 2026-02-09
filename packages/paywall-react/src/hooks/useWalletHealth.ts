@@ -137,13 +137,11 @@ export function useWalletHealth(options: UseWalletHealthOptions = {}): WalletHea
     checkOnMount = true,
   } = options;
 
-  // Get wallet context
-  const { proofs, isReady } = useWalletContext();
+  // Get wallet context - mintUrl is now available from context
+  const { proofs, isReady, mintUrl: contextMintUrl } = useWalletContext();
   
-  // We need to get mintUrl from the wallet, but WalletContext doesn't expose it
-  // So we require it as a prop or use a default placeholder
-  // TODO: Consider adding mintUrl to WalletContext
-  const mintUrl = customMintUrl ?? '';
+  // Use custom mintUrl if provided, otherwise fall back to wallet's mintUrl
+  const mintUrl = customMintUrl ?? contextMintUrl;
 
   // State
   const [health, setHealth] = useState<WalletHealth | null>(null);
@@ -270,10 +268,13 @@ export function useWalletHealth(options: UseWalletHealthOptions = {}): WalletHea
  * Simplified hook for just checking if the wallet is healthy.
  * Uses quickHealthCheck for faster results.
  * 
+ * @param customMintUrl - Optional mint URL override. If not provided, uses the wallet's configured mintUrl.
+ * 
  * @example
  * ```tsx
+ * // Uses wallet's mintUrl automatically
  * function QuickStatus() {
- *   const { isHealthy, score, issue } = useQuickHealth('https://mint.example.com');
+ *   const { isHealthy, score, issue } = useQuickHealth();
  *   
  *   return (
  *     <span className={isHealthy ? 'ok' : 'warn'}>
@@ -283,15 +284,26 @@ export function useWalletHealth(options: UseWalletHealthOptions = {}): WalletHea
  *   );
  * }
  * ```
+ * 
+ * @example
+ * ```tsx
+ * // Override with custom mint URL
+ * function CustomMintStatus() {
+ *   const { isHealthy, score } = useQuickHealth('https://other-mint.example.com');
+ *   return <span>{isHealthy ? '✅' : '❌'} {score}/100</span>;
+ * }
+ * ```
  */
-export function useQuickHealth(mintUrl: string): {
+export function useQuickHealth(customMintUrl?: string): {
   score: number | null;
   isHealthy: boolean | null;
   issue: string | null;
   isChecking: boolean;
   refresh: () => Promise<void>;
 } {
-  const { proofs, isReady } = useWalletContext();
+  const { proofs, isReady, mintUrl: contextMintUrl } = useWalletContext();
+  const mintUrl = customMintUrl ?? contextMintUrl;
+  
   const [result, setResult] = useState<{
     score: number;
     healthy: boolean;
