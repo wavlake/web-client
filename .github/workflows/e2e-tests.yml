@@ -57,6 +57,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Build packages
+        run: npm run build -ws --if-present
+      
       - name: Run unit tests
         run: npm run test:unit
 
