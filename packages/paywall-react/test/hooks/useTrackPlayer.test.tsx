@@ -106,52 +106,8 @@ describe('useTrackPlayer', () => {
       expect(result.current.isPlaying).toBe(true);
     });
 
-    it('should handle change tokens', async () => {
-      mockClient.requestContent.mockResolvedValue({
-        url: 'https://cdn.wavlake.com/signed-url',
-        grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-        change: 'cashuBchangeToken',
-      });
-
-      const { result } = renderHook(() => useTrackPlayer(), { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.play('track-123', 5);
-      });
-
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
-    });
-
-    it('should continue if change handling fails', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      
-      mockClient.requestContent.mockResolvedValue({
-        url: 'https://cdn.wavlake.com/signed-url',
-        grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-        change: 'cashuBchangeToken',
-      });
-      mockWallet.receiveToken.mockRejectedValue(new Error('Change failed'));
-
-      const { result } = renderHook(() => useTrackPlayer(), { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.play('track-123', 5);
-      });
-
-      // Play should still succeed
-      expect(result.current.isPlaying).toBe(true);
-      expect(result.current.audioUrl).toBe('https://cdn.wavlake.com/signed-url');
-      
-      consoleSpy.mockRestore();
-    });
+    // Note: Change handling was removed - overpayment becomes artist tip
+    // Tests for change tokens are no longer applicable
   });
 
   describe('play with audio endpoint', () => {
@@ -169,55 +125,14 @@ describe('useTrackPlayer', () => {
         await result.current.play('track-123', 5);
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken', undefined);
       expect(URL.createObjectURL).toHaveBeenCalled();
       expect(result.current.audioUrl).toBe(mockObjectURL);
       expect(result.current.grantId).toBe(null); // No grant with audio endpoint
     });
 
-    it('should handle audio response change', async () => {
-      mockClient.requestAudio.mockResolvedValue({
-        audio: new Blob(['audio-data'], { type: 'audio/mpeg' }),
-        change: 'cashuBchangeToken',
-      });
-
-      const { result } = renderHook(
-        () => useTrackPlayer({ useContentEndpoint: false }),
-        { wrapper: createWrapper() }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.play('track-123', 5);
-      });
-
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
-    });
-
-    it('should not receive change when autoReceiveChange is false', async () => {
-      mockClient.requestAudio.mockResolvedValue({
-        audio: new Blob(['audio-data'], { type: 'audio/mpeg' }),
-        change: 'cashuBchangeToken',
-      });
-
-      const { result } = renderHook(
-        () => useTrackPlayer({ useContentEndpoint: false, autoReceiveChange: false }),
-        { wrapper: createWrapper() }
-      );
-
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      await act(async () => {
-        await result.current.play('track-123', 5);
-      });
-
-      expect(mockWallet.receiveToken).not.toHaveBeenCalled();
-    });
+    // Note: Change handling was removed - overpayment becomes artist tip
+    // Tests for autoReceiveChange are no longer applicable
   });
 
   describe('balance checking', () => {

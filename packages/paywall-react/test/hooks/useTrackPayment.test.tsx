@@ -133,52 +133,8 @@ describe('useTrackPayment', () => {
       expect(result.current.status).toBe('success');
     });
 
-    it('should process change tokens', async () => {
-      mockClient.requestContent.mockResolvedValue({
-        url: 'https://cdn.wavlake.com/signed-url',
-        grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-        change: 'cashuBchangeToken',
-      });
-
-      const { result } = renderHook(() => useTrackPayment(), { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(result.current.status).toBe('idle');
-      });
-
-      await act(async () => {
-        await result.current.pay('track-123', 5);
-      });
-
-      expect(mockWallet.receiveToken).toHaveBeenCalledWith('cashuBchangeToken');
-    });
-
-    it('should continue successfully even if change handling fails', async () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      
-      mockClient.requestContent.mockResolvedValue({
-        url: 'https://cdn.wavlake.com/signed-url',
-        grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-        change: 'cashuBchangeToken',
-      });
-      mockWallet.receiveToken.mockRejectedValue(new Error('Change processing failed'));
-
-      const { result } = renderHook(() => useTrackPayment(), { wrapper: createWrapper() });
-
-      await waitFor(() => {
-        expect(result.current.status).toBe('idle');
-      });
-
-      await act(async () => {
-        await result.current.pay('track-123', 5);
-      });
-
-      // Payment should still succeed
-      expect(result.current.status).toBe('success');
-      expect(result.current.result?.url).toBe('https://cdn.wavlake.com/signed-url');
-      
-      consoleSpy.mockRestore();
-    });
+    // Note: Change handling was removed - overpayment becomes artist tip
+    // Tests for change processing are no longer applicable
 
     it('should transition through status states', async () => {
       let resolvePrice: Function;
