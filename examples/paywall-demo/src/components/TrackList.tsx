@@ -11,14 +11,7 @@ export function TrackList() {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handlePlay = (track: Track) => {
-    const price = track.metadata.price_credits || 1;
-    play({
-      dtag: track.dTag,
-      title: track.metadata.title,
-      artist: track.metadata.artist,
-      price,
-      artwork: track.metadata.artwork_url,
-    });
+    play(track);
   };
 
   return (
@@ -46,7 +39,7 @@ export function TrackList() {
         {tracks.map((track) => {
           const price = track.metadata.price_credits || 1;
           const isPaywalled = track.metadata.access_mode === 'paywall';
-          const isPlaying = currentTrack?.dtag === track.dTag;
+          const isPlaying = currentTrack?.dTag === track.dTag;
           const canAfford = isReady && balance >= price;
           
           return (
@@ -72,7 +65,7 @@ export function TrackList() {
                     disabled={isLoading || (isPaywalled && !canAfford)}
                     className={isPlaying ? 'playing' : ''}
                   >
-                    {isLoading && currentTrack?.dtag === track.dTag
+                    {isLoading && currentTrack?.dTag === track.dTag
                       ? '⏳'
                       : isPlaying
                       ? '🔊'

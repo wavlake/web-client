@@ -20,6 +20,9 @@ import type {
   ContentResult,
   ChangeResult,
   RequestAudioOptions,
+  ParallelStreamConfig,
+  PaymentResult,
+  StreamHeaders,
 } from '@wavlake/paywall-client';
 import type { Wallet } from '@wavlake/wallet';
 
@@ -28,6 +31,8 @@ import type { Wallet } from '@wavlake/wallet';
 // ============================================================================
 
 export interface PaywallContextValue {
+  /** The underlying PaywallClient instance */
+  client: PaywallClient;
   /** Request audio binary directly (supports two-chunk streaming) */
   requestAudio: (dtag: string, token: string, options?: RequestAudioOptions) => Promise<AudioResult>;
   /** Request content with grant */
@@ -40,6 +45,15 @@ export interface PaywallContextValue {
   getAudioUrl: (dtag: string, token: string, paymentId?: string) => string;
   /** @deprecated Change endpoint was removed. Overpayment becomes artist tip. */
   fetchChange: (paymentId: string) => Promise<ChangeResult>;
+
+  // Parallel payment streaming methods
+  /** Create a parallel stream (returns depositId, streamUrl, headers) */
+  createParallelStream: (dtag: string) => Promise<ParallelStreamConfig>;
+  /** Fetch stream headers for a parallel stream */
+  getStreamHeaders: (dtag: string, depositId: string) => Promise<StreamHeaders | null>;
+  /** Send payment for an active parallel stream */
+  sendPayment: (dtag: string, depositId: string, token: string, options?: { timeout?: number }) => Promise<PaymentResult>;
+
   /** Whether an operation is in progress */
   isLoading: boolean;
   /** Last error, if any */
@@ -182,13 +196,60 @@ export function PaywallProvider({
     setError(null);
   }, []);
 
+  // Parallel payment streaming methods
+  const createParallelStream = useCallback(async (dtag: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await clientRef.current.createParallelStream(dtag);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const getStreamHeaders = useCallback(async (dtag: string, depositId: string) => {
+    try {
+      return await clientRef.current.getStreamHeaders(dtag, depositId);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      throw error;
+    }
+  }, []);
+
+  const sendPayment = useCallback(async (
+    dtag: string, 
+    depositId: string, 
+    token: string,
+    options?: { timeout?: number }
+  ) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await clientRef.current.sendPayment(dtag, depositId, token, options);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setError(error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const value: PaywallContextValue = {
+    client: clientRef.current,
     requestAudio,
     requestContent,
     replayGrant,
     getContentPrice,
     getAudioUrl,
     fetchChange,
+    createParallelStream,
+    getStreamHeaders,
+    sendPayment,
     isLoading,
     error,
     clearError,

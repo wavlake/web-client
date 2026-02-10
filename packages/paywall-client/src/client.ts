@@ -12,10 +12,22 @@ import type {
   RequestContentOptions,
   ChangeResult,
 } from './types.js';
+import type {
+  StreamHeaders,
+  ParallelStreamConfig,
+  PaymentResult,
+} from './parallel-types.js';
 import { PaywallError } from './errors.js';
 import { requestAudio, getAudioUrl, getAudioPrice } from './audio.js';
 import { requestContent, replayGrant, getContentPrice } from './content.js';
 import { fetchChange, hasChange } from './change.js';
+import {
+  generateDepositId,
+  buildStreamUrl,
+  fetchStreamHeaders,
+  sendPayment,
+  createParallelStream,
+} from './parallel.js';
 import { createLogger, type Logger } from './logger.js';
 
 /**
@@ -80,8 +92,6 @@ export class PaywallClient {
         dtag, 
         contentType: result.contentType, 
         size: result.audio.size,
-        hasChange: !!result.change,
-        changeAmount: result.changeAmount,
       });
       return result;
     } catch (error) {
@@ -137,8 +147,6 @@ export class PaywallClient {
         grantId: result.grant.id,
         expiresAt: result.grant.expiresAt,
         streamType: result.grant.streamType,
-        hasChange: !!result.change,
-        changeAmount: result.changeAmount,
       });
       return result;
     } catch (error) {
@@ -189,6 +197,108 @@ export class PaywallClient {
    */
   async hasChange(paymentId: string): Promise<boolean> {
     return hasChange(this.config, paymentId);
+  }
+
+  // ==========================================================================
+  // Parallel Payment Streaming Methods
+  // ==========================================================================
+
+  /**
+   * Create a parallel stream configuration.
+   * 
+   * Returns everything needed to start streaming and trigger payment:
+   * - depositId: UUID for this stream
+   * - streamUrl: URL to set on audio.src
+   * - headers: Preview boundary, price, etc. (null for free tracks)
+   * 
+   * @example
+   * ```ts
+   * const stream = await client.createParallelStream('track-123');
+   * audioElement.src = stream.streamUrl;
+   * // Later, when near preview boundary:
+   * const result = await client.sendPayment(stream.dtag, stream.depositId, token);
+   * ```
+   */
+  async createParallelStream(dtag: string): Promise<ParallelStreamConfig> {
+    this.log.info('Creating parallel stream', { dtag });
+    try {
+      const stream = await createParallelStream(this.config, dtag);
+      this.log.info('Parallel stream created', { 
+        dtag, 
+        depositId: stream.depositId.slice(0, 8) + '...',
+        isFree: stream.isFree,
+        price: stream.headers?.priceCredits,
+      });
+      return stream;
+    } catch (error) {
+      this.log.error('Failed to create parallel stream', { dtag, error: String(error) });
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch stream headers for a parallel stream.
+   * 
+   * Returns preview boundary, price, mint URL, and duration.
+   * Returns null for free tracks.
+   */
+  async getStreamHeaders(dtag: string, depositId: string): Promise<StreamHeaders | null> {
+    return fetchStreamHeaders(this.config, dtag, depositId);
+  }
+
+  /**
+   * Send payment for an active parallel stream.
+   * 
+   * POST /v1/audio/{dtag}/pay with { depositId, token }
+   * 
+   * @param dtag - Track d-tag identifier
+   * @param depositId - UUID from createParallelStream()
+   * @param token - Cashu V4 token with payment proofs
+   * @returns PaymentResult with success/error and optional receipt
+   */
+  async sendPayment(
+    dtag: string,
+    depositId: string,
+    token: string,
+    options?: { timeout?: number }
+  ): Promise<PaymentResult> {
+    this.log.info('Sending payment', { dtag, depositId: depositId.slice(0, 8) + '...' });
+    try {
+      const result = await sendPayment(this.config, dtag, depositId, token, options);
+      if (result.success) {
+        this.log.info('Payment successful', { 
+          dtag, 
+          hasReceipt: !!result.receipt,
+          alreadyPaid: result.alreadyPaid,
+        });
+      } else {
+        this.log.warn('Payment failed', { dtag, error: result.error });
+      }
+      return result;
+    } catch (error) {
+      this.log.error('Payment error', { dtag, error: String(error) });
+      throw error;
+    }
+  }
+
+  /**
+   * Build a stream URL with deposit ID.
+   * 
+   * Use this if you need to manually manage the deposit ID.
+   * For most cases, use createParallelStream() instead.
+   */
+  buildStreamUrl(dtag: string, depositId: string): string {
+    return buildStreamUrl(this.config.apiUrl, dtag, depositId);
+  }
+
+  /**
+   * Generate a unique deposit ID.
+   * 
+   * Use this if you need to manually manage the deposit ID.
+   * For most cases, use createParallelStream() instead.
+   */
+  static generateDepositId(): string {
+    return generateDepositId();
   }
 
   // ==========================================================================

@@ -44,6 +44,15 @@ export {
   hasChange,
 } from './change.js';
 
+// Parallel payment streaming
+export {
+  generateDepositId,
+  buildStreamUrl,
+  fetchStreamHeaders,
+  sendPayment,
+  createParallelStream,
+} from './parallel.js';
+
 // Error classes
 export {
   PaywallError,
@@ -85,7 +94,19 @@ export type {
   Logger,
   LogEntry,
   LogLevel,
-  // Two-chunk streaming types
+  // Two-chunk streaming types (legacy)
   ChunkType,
   TwoChunkInfo,
 } from './types.js';
+
+// Parallel payment streaming types
+export type {
+  StreamState,
+  StreamHeaders,
+  ParallelStreamConfig,
+  PaymentRequest,
+  SettlementReceipt,
+  PaymentResult,
+  UseParallelStreamOptions,
+  UseParallelStreamReturn,
+} from './parallel-types.js';

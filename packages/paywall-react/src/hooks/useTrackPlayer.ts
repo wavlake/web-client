@@ -36,7 +36,10 @@ export interface UseTrackPlayerResult {
 export interface UseTrackPlayerOptions {
   /** Use /v1/content endpoint (default: true for grant support) */
   useContentEndpoint?: boolean;
-  /** Auto-receive change tokens */
+  /**
+   * @deprecated Change mechanism removed - overpayment becomes artist tip.
+   * This option is ignored.
+   */
   autoReceiveChange?: boolean;
 }
 
@@ -82,7 +85,7 @@ export interface UseTrackPlayerOptions {
 export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPlayerResult {
   const {
     useContentEndpoint = true,
-    autoReceiveChange = true,
+    // autoReceiveChange is deprecated and ignored
   } = options;
 
   const wallet = useWalletContext();
@@ -124,14 +127,7 @@ export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPla
         // Use content endpoint (supports grant replay)
         const result = await paywall.requestContent(dtag, token);
 
-        // Handle change
-        if (autoReceiveChange && result.change) {
-          try {
-            await wallet.receiveToken(result.change);
-          } catch (err) {
-            console.warn('Failed to receive change:', err);
-          }
-        }
+        // Note: Change mechanism removed - overpayment becomes artist tip
 
         // Store grant for potential replay
         setGrantId(result.grant.id);
@@ -140,14 +136,7 @@ export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPla
         // Use audio endpoint (direct binary)
         const result = await paywall.requestAudio(dtag, token);
 
-        // Handle change
-        if (autoReceiveChange && result.change) {
-          try {
-            await wallet.receiveToken(result.change);
-          } catch (err) {
-            console.warn('Failed to receive change:', err);
-          }
-        }
+        // Note: Change mechanism removed - overpayment becomes artist tip
 
         // Create blob URL
         cleanupBlobUrl();
@@ -165,7 +154,7 @@ export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPla
     } finally {
       setIsLoading(false);
     }
-  }, [wallet, paywall, useContentEndpoint, autoReceiveChange, cleanupBlobUrl]);
+  }, [wallet, paywall, useContentEndpoint, cleanupBlobUrl]);
 
   // Stop playback
   const stop = useCallback(() => {

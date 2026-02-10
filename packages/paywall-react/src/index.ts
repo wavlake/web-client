@@ -106,6 +106,12 @@ export {
   type UseWalletHealthOptions,
 } from './hooks/useWalletHealth.js';
 
+export {
+  useParallelStream,
+  type UseParallelStreamOptions,
+  type UseParallelStreamReturn,
+} from './hooks/useParallelStream.js';
+
 // Re-export types from dependencies for convenience
 export type {
   Proof,
@@ -122,4 +128,7 @@ export type {
   ContentResult,
   ChangeResult,
   PaywallError,
+  // Parallel payment streaming types
+  ParallelStreamConfig,
+  PaymentResult,
 } from '@wavlake/paywall-client';
