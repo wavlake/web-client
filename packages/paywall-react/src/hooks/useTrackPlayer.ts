@@ -36,8 +36,6 @@ export interface UseTrackPlayerResult {
 export interface UseTrackPlayerOptions {
   /** Use /v1/content endpoint (default: true for grant support) */
   useContentEndpoint?: boolean;
-  /** Auto-receive change tokens */
-  autoReceiveChange?: boolean;
 }
 
 // ============================================================================
@@ -50,7 +48,6 @@ export interface UseTrackPlayerOptions {
  * Handles:
  * - Token creation from wallet
  * - Content/audio request
- * - Change processing
  * - Error handling
  * 
  * @example
@@ -82,7 +79,6 @@ export interface UseTrackPlayerOptions {
 export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPlayerResult {
   const {
     useContentEndpoint = true,
-    autoReceiveChange = true,
   } = options;
 
   const wallet = useWalletContext();
@@ -124,30 +120,12 @@ export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPla
         // Use content endpoint (supports grant replay)
         const result = await paywall.requestContent(dtag, token);
 
-        // Handle change
-        if (autoReceiveChange && result.change) {
-          try {
-            await wallet.receiveToken(result.change);
-          } catch (err) {
-            console.warn('Failed to receive change:', err);
-          }
-        }
-
         // Store grant for potential replay
         setGrantId(result.grant.id);
         setAudioUrl(result.url);
       } else {
         // Use audio endpoint (direct binary)
         const result = await paywall.requestAudio(dtag, token);
-
-        // Handle change
-        if (autoReceiveChange && result.change) {
-          try {
-            await wallet.receiveToken(result.change);
-          } catch (err) {
-            console.warn('Failed to receive change:', err);
-          }
-        }
 
         // Create blob URL
         cleanupBlobUrl();
@@ -165,7 +143,7 @@ export function useTrackPlayer(options: UseTrackPlayerOptions = {}): UseTrackPla
     } finally {
       setIsLoading(false);
     }
-  }, [wallet, paywall, useContentEndpoint, autoReceiveChange, cleanupBlobUrl]);
+  }, [wallet, paywall, useContentEndpoint, cleanupBlobUrl]);
 
   // Stop playback
   const stop = useCallback(() => {

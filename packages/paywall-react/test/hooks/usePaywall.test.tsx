@@ -11,17 +11,14 @@ import { PaywallProvider, usePaywall } from '../../src/index.js';
 const createMockClient = () => ({
   requestAudio: vi.fn().mockResolvedValue({
     audio: new Blob(['audio-data'], { type: 'audio/mpeg' }),
-    change: null,
   }),
   requestContent: vi.fn().mockResolvedValue({
     url: 'https://cdn.wavlake.com/signed-url',
     grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-    change: null,
   }),
   replayGrant: vi.fn().mockResolvedValue({
     url: 'https://cdn.wavlake.com/replay-url',
     grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-    change: null,
   }),
   getContentPrice: vi.fn().mockResolvedValue(5),
   getAudioUrl: vi.fn().mockReturnValue('https://api.wavlake.com/audio/track-123?token=cashuB...'),
@@ -77,7 +74,7 @@ describe('usePaywall', () => {
         audioResult = await result.current.requestAudio('track-123', 'cashuBtoken');
       });
 
-      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken');
+      expect(mockClient.requestAudio).toHaveBeenCalledWith('track-123', 'cashuBtoken', undefined);
       expect(audioResult.audio).toBeInstanceOf(Blob);
     });
 
@@ -100,7 +97,7 @@ describe('usePaywall', () => {
       });
 
       await act(async () => {
-        resolvePromise!({ audio: new Blob(), change: null });
+        resolvePromise!({ audio: new Blob() });
       });
 
       expect(result.current.isLoading).toBe(false);
@@ -137,13 +134,7 @@ describe('usePaywall', () => {
       expect(contentResult.grant.id).toBe('grant-123');
     });
 
-    it('should handle content with change', async () => {
-      mockClient.requestContent.mockResolvedValue({
-        url: 'https://cdn.wavlake.com/signed-url',
-        grant: { id: 'grant-123', expiresAt: Date.now() + 600000 },
-        change: 'cashuBchangeToken',
-      });
-
+    it('should return content result with grant (no change - Phase 5)', async () => {
       const { result } = renderHook(() => usePaywall(), { wrapper });
 
       let contentResult: any;
@@ -151,7 +142,10 @@ describe('usePaywall', () => {
         contentResult = await result.current.requestContent('track-123', 'cashuBtoken');
       });
 
-      expect(contentResult.change).toBe('cashuBchangeToken');
+      // Phase 5: ContentResult only has url + grant, no change
+      expect(contentResult.url).toBe('https://cdn.wavlake.com/signed-url');
+      expect(contentResult.grant.id).toBe('grant-123');
+      expect(contentResult.change).toBeUndefined();
     });
   });
 
