@@ -80,8 +80,6 @@ export class PaywallClient {
         dtag, 
         contentType: result.contentType, 
         size: result.audio.size,
-        hasChange: !!result.change,
-        changeAmount: result.changeAmount,
       });
       return result;
     } catch (error) {
@@ -137,8 +135,6 @@ export class PaywallClient {
         grantId: result.grant.id,
         expiresAt: result.grant.expiresAt,
         streamType: result.grant.streamType,
-        hasChange: !!result.change,
-        changeAmount: result.changeAmount,
       });
       return result;
     } catch (error) {

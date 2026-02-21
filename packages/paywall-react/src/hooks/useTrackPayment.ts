@@ -84,7 +84,7 @@ export interface TrackPaymentState {
  */
 export function useTrackPayment(): TrackPaymentState {
   const { requestContent, replayGrant, getContentPrice } = usePaywallContext();
-  const { createToken, receiveToken } = useWalletContext();
+  const { createToken } = useWalletContext();
 
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [result, setResult] = useState<ContentResult | null>(null);
@@ -128,16 +128,6 @@ export function useTrackPayment(): TrackPaymentState {
       setStatus('requesting-content');
       const content = await requestContent(dtag, token);
 
-      // Step 4: Handle change if present
-      if (content.change) {
-        try {
-          await receiveToken(content.change);
-        } catch (changeErr) {
-          // Log but don't fail - change handling is best-effort
-          console.warn('Failed to receive change:', changeErr);
-        }
-      }
-
       setResult(content);
       setStatus('success');
       return content;
@@ -146,7 +136,7 @@ export function useTrackPayment(): TrackPaymentState {
       setStatus('error');
       return null;
     }
-  }, [getContentPrice, requestContent, createToken, receiveToken]);
+  }, [getContentPrice, requestContent, createToken]);
 
   const replay = useCallback(async (
     dtag: string,

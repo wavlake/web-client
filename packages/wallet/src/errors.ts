@@ -179,7 +179,6 @@ export function generateSuggestion(code: TokenCreationErrorCode, context: {
         return 'Wallet is empty. Add credits to continue.';
       }
       const minDenom = Math.min(...availableDenominations);
-      const maxDenom = Math.max(...availableDenominations);
       // Check if all proofs are too large (single large denomination)
       if (availableDenominations.length === 1 && minDenom > requestedAmount) {
         return `Only have ${minDenom}-credit proofs. A swap will break these into smaller denominations.`;
