@@ -1,5 +1,7 @@
 # Wavlake Paywall Debug Client
 
+> **Historical.** Uses retired Nostr kinds. Current: https://dev.wavlake.com and https://wavlake.com/nostr-kinds.json.
+
 A **debug/testing harness** for the Wavlake paywall system. Built to expose every step of the payment flow.
 
 ## Purpose
